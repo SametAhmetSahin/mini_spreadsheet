@@ -5,13 +5,13 @@ use std::{
     path::PathBuf,
 };
 
-struct RawCell(String);
+pub struct RawCell(pub String);
 
 /// Represents a spread sheet where the inputs have not been processed
 pub struct RawSpreadSheet {
-    rows: Vec<Vec<RawCell>>,
-    height: usize,
-    width: usize,
+    pub rows: Vec<Vec<RawCell>>,
+    pub height: usize,
+    pub width: usize,
 }
 
 impl RawSpreadSheet {
