@@ -1,21 +1,15 @@
-use crate::raw_spreadsheet::{RawCell, RawSpreadSheet};
+use ast::AST;
 
-#[derive(Debug)]
-enum CloneCell {
-    Up,
-    Left,
-    Down,
-    Right,
-}
+use crate::raw_spreadsheet::{RawCell, RawSpreadSheet};
+mod ast;
 
 #[derive(Debug)]
 struct Expression {}
 
 #[derive(Debug)]
-enum Token {
+enum CellType {
     Text(String),
     Number(f64),
-    Clone(CloneCell),
     Expr(Expression),
     Empty,
 }
@@ -23,7 +17,7 @@ enum Token {
 /// Represents a spread sheet where all cells have been tokenized
 #[derive(Debug)]
 pub struct ParsedSheet {
-    rows: Vec<Vec<Token>>,
+    rows: Vec<Vec<CellType>>,
     width: usize,
     height: usize,
 }
@@ -34,6 +28,18 @@ enum ExprToken {
     Minus,
     Division,
     Multiply,
+}
+
+impl ExprToken {
+    fn get_order(&self) -> usize{
+        match &self {
+            ExprToken::CellName(_) => 0,
+            ExprToken::Plus => 1,
+            ExprToken::Minus => 1,
+            ExprToken::Division => 2,
+            ExprToken::Multiply => 2,
+        }
+    }
 }
 
 struct ExpressionParser {
@@ -48,6 +54,7 @@ impl ExpressionParser {
 
     fn parse_expression(&mut self) -> Expression {
         let tokens = self.tokenize_expression();
+        let ast = self.create_ast(tokens);
 
         Expression {}
     }
@@ -116,7 +123,7 @@ impl ExpressionParser {
             '-' => ExprToken::Minus,
             '/' => ExprToken::Division,
             '*' => ExprToken::Multiply,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -144,6 +151,10 @@ impl ExpressionParser {
         }
         true
     }
+    
+    fn create_ast(&self, tokens: Vec<ExprToken>) -> AST {
+        todo!()
+    }
 }
 
 pub struct CellParser {}
@@ -162,32 +173,22 @@ impl CellParser {
         }
     }
 
-    fn parse_cell(rs: RawCell) -> Token {
+    fn parse_cell(rs: RawCell) -> CellType {
         let inner = rs.0;
         if inner.len() == 0 {
-            return Token::Empty;
+            return CellType::Empty;
         }
 
         match inner.chars().nth(0).unwrap() {
             '=' => Self::parse_expression(&inner).unwrap(),
-            ':' => Self::parse_clone(&inner).unwrap(),
-            _ => Token::Text(inner),
+            num if num.is_digit(10) => CellType::Number(inner.parse().unwrap()),
+            _ => CellType::Text(inner),
         }
     }
 
-    fn parse_clone(s: &str) -> Option<Token> {
-        match s {
-            ":^" => Some(Token::Clone(CloneCell::Up)),
-            ":<" => Some(Token::Clone(CloneCell::Up)),
-            ":>" => Some(Token::Clone(CloneCell::Up)),
-            ":v" => Some(Token::Clone(CloneCell::Up)),
-            _ => None,
-        }
-    }
-
-    fn parse_expression(s: &str) -> Option<Token> {
+    fn parse_expression(s: &str) -> Option<CellType> {
         let expr = ExpressionParser::new(s[1..].chars().collect()).parse_expression();
 
-        todo!()
+        Some(CellType::Expr(expr))
     }
 }
