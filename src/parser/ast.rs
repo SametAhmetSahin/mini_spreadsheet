@@ -1,70 +1,107 @@
-use super::ExprToken;
+use std::iter::Peekable;
 
-
-enum Value {
-    Text(String),
-    Number(f64),
-}
-struct Context;
-
-impl Context {
-    fn resolve(&self, cell_name : &str) -> Value{
-        todo!()
-    }
-}
-
-trait Node {
-    // Cells require to see other cells to evaluate expression such as A1
-    fn evaluate(&self, context: &Context) -> Value;
-}
-
-struct CellNode {
-    cell_name: String,
-}
-
-impl Node for CellNode {
-    fn evaluate(&self, context: &Context) -> Value {
-        context.resolve(&self.cell_name)
-    }
-}
-
-enum BinaryOperator {
+#[derive(Debug, PartialEq, Clone)]
+pub enum Token {
+    CellName(String),
     Plus,
     Minus,
-    Div,
-    Mult,
+    Division,
+    Multiply,
+    LParen,
+    RParen,
 }
 
-struct BinaryOperatorNode {
-    operation: BinaryOperator,
-    left: Box<dyn Node>,
-    right: Box<dyn Node>,
-}
-
-impl Node for BinaryOperatorNode {
-    fn evaluate(&self, context: &Context) -> Value {
-        let left_val = self.left.evaluate(context);
-        let right_val = self.right.evaluate(context);
-        
-        let (left_val, right_val) = match (left_val, right_val) {
-            (Value::Number(l), Value::Number(r)) => (l, r),
-            _ => panic!("Expected left and right to be numbers"),
-        };
-        match self.operation {
-            BinaryOperator::Plus =>Value::Number( left_val + right_val),
-            BinaryOperator::Minus =>Value::Number( left_val - right_val),
-            BinaryOperator::Div =>Value::Number( left_val / right_val),
-            BinaryOperator::Mult =>Value::Number( left_val * right_val),
+impl Token {
+    fn get_precedence(&self) -> usize {
+        match &self {
+            Token::Plus | Token::Minus => 1,
+            Token::Division | Token::Multiply => 2,
+            _ => 0,
         }
     }
 }
 
-pub struct AST {
-    head : Box<dyn Node>
+#[derive(Debug)]
+pub enum AST {
+    CellName(String),
+    BinaryOp {
+        op: Token,
+        left: Box<AST>,
+        right: Box<AST>,
+    },
 }
 
-impl AST {
-    pub fn new(tokens : Vec<ExprToken>) -> Self {
-        todo!()
+pub struct ASTCreator<I>
+where
+    I: Iterator<Item = Token>,
+{
+    tokens: Peekable<I>,
+}
+#[derive(Debug)]
+pub enum ParseError {
+    UnexpectedToken,
+    MismatchedParentheses,
+}
+
+impl<I> ASTCreator<I>
+where
+    I: Iterator<Item = Token>,
+{
+    pub fn new(tokens: I) -> Self {
+        Self {
+            tokens: tokens.peekable(),
+        }
+    }
+
+    pub fn parse(&mut self) -> Result<AST, ParseError> {
+        self.parse_expression(0)
+    }
+
+    fn parse_expression(&mut self, min_precedence: usize) -> Result<AST, ParseError> {
+        // Min presedence arguement is important for recursive calls where it may be higher than 1
+
+        let mut left = self.parse_primary()?;
+
+        while let Some(op) = self.peek_operator() {
+            let precedence = op.get_precedence();
+            if precedence < min_precedence {
+                break;
+            }
+            self.tokens.next(); // Consume the operator
+
+            let mut right = self.parse_expression(precedence + 1)?;
+
+            left = AST::BinaryOp {
+                op,
+                left: Box::new(left),
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
+    fn parse_primary(&mut self) -> Result<AST, ParseError> {
+        match self.tokens.next() {
+            Some(Token::CellName(n)) => Ok(AST::CellName(n)),
+            Some(Token::LParen) => {
+                let expr = self.parse_expression(0)?;
+                match self.tokens.next() {
+                    Some(Token::RParen) => Ok(expr),
+                    _ => Err(ParseError::MismatchedParentheses),
+                }
+            }
+            _ => Err(ParseError::UnexpectedToken),
+        }
+    }
+
+    fn peek_operator(&mut self) -> Option<Token> {
+        match self.tokens.peek() {
+            Some(Token::Plus)
+            | Some(Token::Minus)
+            | Some(Token::Multiply)
+            | Some(Token::Division) => self.tokens.peek().cloned(),
+            _ => None,
+        }
     }
 }

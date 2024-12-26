@@ -23,7 +23,7 @@ impl RawSpreadSheet {
 
         let rows: Vec<Vec<RawCell>> = buffer
             .lines()
-            .map(|x| x.split('|').map(|s| RawCell(s.to_string())).collect())
+            .map(|x| x.split('|').map(|s| RawCell(s.trim().to_string())).collect())
             .collect();
 
         let width = rows

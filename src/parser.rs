@@ -1,10 +1,12 @@
-use ast::AST;
+use ast::{ASTCreator, Token, AST};
 
 use crate::raw_spreadsheet::{RawCell, RawSpreadSheet};
 mod ast;
 
 #[derive(Debug)]
-struct Expression {}
+struct Expression {
+    ast: AST,
+}
 
 #[derive(Debug)]
 enum CellType {
@@ -22,26 +24,6 @@ pub struct ParsedSheet {
     height: usize,
 }
 
-enum ExprToken {
-    CellName(String),
-    Plus,
-    Minus,
-    Division,
-    Multiply,
-}
-
-impl ExprToken {
-    fn get_order(&self) -> usize{
-        match &self {
-            ExprToken::CellName(_) => 0,
-            ExprToken::Plus => 1,
-            ExprToken::Minus => 1,
-            ExprToken::Division => 2,
-            ExprToken::Multiply => 2,
-        }
-    }
-}
-
 struct ExpressionParser {
     index: usize,
     chars: Vec<char>,
@@ -56,15 +38,15 @@ impl ExpressionParser {
         let tokens = self.tokenize_expression();
         let ast = self.create_ast(tokens);
 
-        Expression {}
+        Expression { ast }
     }
 
-    fn tokenize_expression(&mut self) -> Vec<ExprToken> {
+    fn tokenize_expression(&mut self) -> Vec<Token> {
         self.skip_whitespace();
         let mut expr_tokens = Vec::new();
         while !self.is_done() {
             let token = match self.peek().expect("Should never fail") {
-                '+' | '-' | '/' | '*' => self.parse_operator(),
+                '+' | '-' | '/' | '*' | '('| ')' => self.parse_operator(),
                 letter if letter.is_uppercase() => self.parse_cell_name().unwrap(),
                 _unknown => todo!(),
             };
@@ -77,7 +59,7 @@ impl ExpressionParser {
         expr_tokens
     }
 
-    fn parse_cell_name(&mut self) -> Option<ExprToken> {
+    fn parse_cell_name(&mut self) -> Option<Token> {
         // [A-Z]+\d+
 
         let mut is_valid = false;
@@ -114,15 +96,17 @@ impl ExpressionParser {
             return None;
         }
 
-        Some(ExprToken::CellName(cell_name))
+        Some(Token::CellName(cell_name))
     }
 
-    fn parse_operator(&mut self) -> ExprToken {
+    fn parse_operator(&mut self) -> Token {
         match self.pop().expect("Shoud never fail") {
-            '+' => ExprToken::Plus,
-            '-' => ExprToken::Minus,
-            '/' => ExprToken::Division,
-            '*' => ExprToken::Multiply,
+            '+' => Token::Plus,
+            '-' => Token::Minus,
+            '/' => Token::Division,
+            '*' => Token::Multiply,
+            '(' => Token::LParen,
+            ')' => Token::RParen,
             _ => unreachable!(),
         }
     }
@@ -151,9 +135,9 @@ impl ExpressionParser {
         }
         true
     }
-    
-    fn create_ast(&self, tokens: Vec<ExprToken>) -> AST {
-        todo!()
+
+    fn create_ast(&self, tokens: Vec<Token>) -> AST {
+        ASTCreator::new(tokens.into_iter()).parse().unwrap()
     }
 }
 
@@ -164,10 +148,11 @@ impl CellParser {
         let parsed_rows = ss
             .rows
             .into_iter()
-            .map(|row| row.into_iter().map(Self::parse_cell));
+            .map(|row| row.into_iter().map(Self::parse_cell).collect())
+            .collect();
 
         ParsedSheet {
-            rows: todo!(),
+            rows: parsed_rows,
             width: ss.width,
             height: ss.height,
         }
@@ -181,7 +166,10 @@ impl CellParser {
 
         match inner.chars().nth(0).unwrap() {
             '=' => Self::parse_expression(&inner).unwrap(),
-            num if num.is_digit(10) => CellType::Number(inner.parse().unwrap()),
+            num if num.is_digit(10) => match inner.parse() {
+                Ok(number) => CellType::Number(number),
+                Err(e) => panic!("Had error: -{e}- with string {inner}"),
+            },
             _ => CellType::Text(inner),
         }
     }
