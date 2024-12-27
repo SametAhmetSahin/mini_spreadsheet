@@ -21,7 +21,7 @@ impl Token {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AST {
     CellName(String),
     BinaryOp {
@@ -103,5 +103,139 @@ where
             | Some(Token::Division) => self.tokens.peek().cloned(),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_single_cell_name() {
+        let tokens = vec![Token::CellName("A1".to_string())];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(ast, AST::CellName("A1".to_string()));
+    }
+
+    #[test]
+    fn test_simple_addition() {
+        let tokens = vec![
+            Token::CellName("A1".to_string()),
+            Token::Plus,
+            Token::CellName("B2".to_string()),
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(
+            ast,
+            AST::BinaryOp {
+                op: Token::Plus,
+                left: Box::new(AST::CellName("A1".to_string())),
+                right: Box::new(AST::CellName("B2".to_string())),
+            }
+        );
+    }
+
+    #[test]
+    fn test_operator_precedence() {
+        let tokens = vec![
+            Token::CellName("A1".to_string()),
+            Token::Plus,
+            Token::CellName("B2".to_string()),
+            Token::Multiply,
+            Token::CellName("C3".to_string()),
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(
+            ast,
+            AST::BinaryOp {
+                op: Token::Plus,
+                left: Box::new(AST::CellName("A1".to_string())),
+                right: Box::new(AST::BinaryOp {
+                    op: Token::Multiply,
+                    left: Box::new(AST::CellName("B2".to_string())),
+                    right: Box::new(AST::CellName("C3".to_string())),
+                }),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parentheses_override_precedence() {
+        let tokens = vec![
+            Token::LParen,
+            Token::CellName("A1".to_string()),
+            Token::Plus,
+            Token::CellName("B2".to_string()),
+            Token::RParen,
+            Token::Multiply,
+            Token::CellName("C3".to_string()),
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(
+            ast,
+            AST::BinaryOp {
+                op: Token::Multiply,
+                left: Box::new(AST::BinaryOp {
+                    op: Token::Plus,
+                    left: Box::new(AST::CellName("A1".to_string())),
+                    right: Box::new(AST::CellName("B2".to_string())),
+                }),
+                right: Box::new(AST::CellName("C3".to_string())),
+            }
+        );
+    }
+
+    #[test]
+    fn test_mismatched_parentheses() {
+        let tokens = vec![
+            Token::LParen,
+            Token::CellName("A1".to_string()),
+            Token::Plus,
+            Token::CellName("B2".to_string()),
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let result = parser.parse();
+        assert!(matches!(result, Err(ParseError::MismatchedParentheses)));
+    }
+
+    #[test]
+    fn test_unexpected_token() {
+        let tokens = vec![Token::Plus, Token::CellName("A1".to_string())];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let result = parser.parse();
+        assert!(matches!(result, Err(ParseError::UnexpectedToken)));
+    }
+
+    #[test]
+    fn test_nested_parentheses() {
+        let tokens = vec![
+            Token::LParen,
+            Token::LParen,
+            Token::CellName("A1".to_string()),
+            Token::Plus,
+            Token::CellName("B2".to_string()),
+            Token::RParen,
+            Token::Multiply,
+            Token::CellName("C3".to_string()),
+            Token::RParen,
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(
+            ast,
+            AST::BinaryOp {
+                op: Token::Multiply,
+                left: Box::new(AST::BinaryOp {
+                    op: Token::Plus,
+                    left: Box::new(AST::CellName("A1".to_string())),
+                    right: Box::new(AST::CellName("B2".to_string())),
+                }),
+                right: Box::new(AST::CellName("C3".to_string())),
+            }
+        );
     }
 }
