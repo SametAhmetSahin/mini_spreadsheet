@@ -9,6 +9,7 @@ pub struct ExpressionTokenizer {
 pub enum TokenizeError {
     UnexpectedCharacter(char),
     InvalidCellName(String),
+    InvalidNumber(String),
 }
 
 impl ExpressionTokenizer {
@@ -22,7 +23,8 @@ impl ExpressionTokenizer {
         while !self.is_done() {
             let token = match self.peek().expect("Should never fail") {
                 '+' | '-' | '/' | '*' | '(' | ')' => self.parse_operator(),
-                letter if letter.is_uppercase() => self.parse_cell_name().unwrap(),
+                letter if letter.is_uppercase() => self.parse_cell_name()?,
+                digit if digit.is_digit(10) => self.parse_number()?,
                 unknown => return Err(TokenizeError::UnexpectedCharacter(*unknown)),
             };
 
@@ -110,6 +112,23 @@ impl ExpressionTokenizer {
         }
         true
     }
+
+    fn parse_number(&mut self) -> Result<Token, TokenizeError> {
+        let mut number = String::new();
+        while let Some(&ch) = self.peek() {
+            if ch.is_digit(10) || ch == '.' {
+                number.push(ch);
+                self.pop();
+            } else {
+                break;
+            }
+        }
+
+        match number.parse() {
+            Ok(inner) => Ok(Token::Number(inner)),
+            Err(_) => Err(TokenizeError::InvalidNumber(number)),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -119,7 +138,9 @@ mod tests {
     #[test]
     fn test_simple_expression() {
         let s = "A1 + A2";
-        let tokens = ExpressionTokenizer::new(s.chars().collect()).tokenize_expression().unwrap();
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -133,7 +154,9 @@ mod tests {
     #[test]
     fn test_expression_with_parentheses() {
         let s = "(A1 + B2) * C3";
-        let tokens = ExpressionTokenizer::new(s.chars().collect()).tokenize_expression().unwrap();
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -151,7 +174,9 @@ mod tests {
     #[test]
     fn test_expression_with_division_and_whitespace() {
         let s = "  A1   /   B2 ";
-        let tokens = ExpressionTokenizer::new(s.chars().collect()).tokenize_expression().unwrap();
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -165,7 +190,9 @@ mod tests {
     #[test]
     fn test_complex_expression() {
         let s = "((A1 + B2) - C3) * D4 / E5";
-        let tokens = ExpressionTokenizer::new(s.chars().collect()).tokenize_expression().unwrap();
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -189,7 +216,9 @@ mod tests {
     #[test]
     fn test_empty_expression() {
         let s = "";
-        let tokens = ExpressionTokenizer::new(s.chars().collect()).tokenize_expression().unwrap();
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
         assert!(
             tokens.is_empty(),
             "Expected empty token list for empty expression"
@@ -199,7 +228,9 @@ mod tests {
     #[test]
     fn test_expression_with_extra_whitespace() {
         let s = "   A1    +     A2   ";
-        let tokens = ExpressionTokenizer::new(s.chars().collect()).tokenize_expression().unwrap();
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -210,4 +241,138 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_expression_with_numbers() {
+        let s = "3.14 + 42";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![Token::Number(3.14), Token::Plus, Token::Number(42.0),]
+        );
+    }
+
+    #[test]
+    fn test_expression_with_invalid_cell_name() {
+        let s = "A + B2";
+        let result = ExpressionTokenizer::new(s.chars().collect()).tokenize_expression();
+        assert!(matches!(result, Err(TokenizeError::InvalidCellName(_))));
+    }
+
+    #[test]
+    fn test_expression_with_invalid_number() {
+        let s = "42.3.14 + B2";
+        let result = ExpressionTokenizer::new(s.chars().collect()).tokenize_expression();
+        assert!(matches!(result, Err(TokenizeError::InvalidNumber(_))));
+    }
+
+    #[test]
+    fn test_expression_with_unexpected_character() {
+        let s = "A1 + $B2";
+        let result = ExpressionTokenizer::new(s.chars().collect()).tokenize_expression();
+        assert!(matches!(
+            result,
+            Err(TokenizeError::UnexpectedCharacter('$'))
+        ));
+    }
+
+    #[test]
+    fn test_expression_with_nested_parentheses() {
+        let s = "(((A1))) + B2";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::LParen,
+                Token::LParen,
+                Token::LParen,
+                Token::CellName("A1".to_string()),
+                Token::RParen,
+                Token::RParen,
+                Token::RParen,
+                Token::Plus,
+                Token::CellName("B2".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn test_expression_with_negative_numbers() {
+        let s = "-42.5 * (3 + 4)";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Minus,
+                Token::Number(42.5),
+                Token::Multiply,
+                Token::LParen,
+                Token::Number(3.0),
+                Token::Plus,
+                Token::Number(4.0),
+                Token::RParen,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_expression_with_trailing_whitespace() {
+        let s = "A1 + B2    ";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::CellName("A1".to_string()),
+                Token::Plus,
+                Token::CellName("B2".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_expression_with_multiple_digits_in_cell_name() {
+        let s = "A123 + B456";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::CellName("A123".to_string()),
+                Token::Plus,
+                Token::CellName("B456".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_expression_with_only_whitespace() {
+        let s = "    ";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert!(
+            tokens.is_empty(),
+            "Expected empty token list for expression with only whitespace"
+        );
+    }
+
+    #[test]
+    fn test_expression_with_complex_numbers() {
+        let s = "123.45 * 67.89";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![Token::Number(123.45), Token::Multiply, Token::Number(67.89),]
+        );
+    }
 }

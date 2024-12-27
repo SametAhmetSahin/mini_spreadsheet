@@ -3,6 +3,7 @@ use std::iter::Peekable;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     CellName(String),
+    Number(f64),
     Plus,
     Minus,
     Division,
