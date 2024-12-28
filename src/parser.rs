@@ -1,8 +1,9 @@
-use core::panic;
 use ast::{ASTCreator, AST};
+use core::panic;
+use std::collections::HashMap;
 use tokenizer::ExpressionTokenizer;
 
-use crate::raw_spreadsheet::{RawCell, RawSpreadSheet};
+use crate::raw_spreadsheet::{Index, RawCell, RawSpreadSheet};
 mod ast;
 mod tokenizer;
 
@@ -12,17 +13,16 @@ struct Expression {
 }
 
 #[derive(Debug)]
-enum CellType {
+enum ParsedCell {
     Text(String),
     Number(f64),
     Expr(Expression),
-    Empty,
 }
 
 /// Represents a spread sheet where all cells have been tokenized
 #[derive(Debug)]
 pub struct ParsedSheet {
-    rows: Vec<Vec<CellType>>,
+    pub cells: HashMap<Index, ParsedCell>,
     width: usize,
     height: usize,
 }
@@ -32,39 +32,41 @@ pub struct CellParser {}
 impl CellParser {
     pub fn parse_raw(ss: RawSpreadSheet) -> ParsedSheet {
         let parsed_rows = ss
-            .rows
+            .cells
             .into_iter()
-            .map(|row| row.into_iter().map(Self::parse_cell).collect())
+            .map(|row| (row.0, Self::parse_cell(row.1)))
             .collect();
 
         ParsedSheet {
-            rows: parsed_rows,
+            cells: parsed_rows,
             width: ss.width,
             height: ss.height,
         }
     }
 
-    fn parse_cell(rs: RawCell) -> CellType {
+    fn parse_cell(rs: RawCell) -> ParsedCell {
         let inner = rs.0;
+        
         if inner.len() == 0 {
-            return CellType::Empty;
+            unreachable!()
         }
 
         match inner.chars().nth(0).expect("Should never fail") {
             '=' => Self::parse_expression(&inner).unwrap(),
             num if num.is_digit(10) => match inner.parse() {
-                Ok(number) => CellType::Number(number),
+                Ok(number) => ParsedCell::Number(number),
                 Err(e) => panic!("Had error: -{e}- parsing number {inner}"),
             },
-            _ => CellType::Text(inner),
+            _ => ParsedCell::Text(inner),
         }
     }
 
-    fn parse_expression(s: &str) -> Option<CellType> {
-        let tokens = ExpressionTokenizer::new(s[1..].chars().collect()).tokenize_expression().ok()?;
+    fn parse_expression(s: &str) -> Option<ParsedCell> {
+        let tokens = ExpressionTokenizer::new(s[1..].chars().collect())
+            .tokenize_expression()
+            .ok()?;
         let ast = ASTCreator::new(tokens.into_iter()).parse().ok()?;
         let expr = Expression { ast };
-        Some(CellType::Expr(expr))
+        Some(ParsedCell::Expr(expr))
     }
-
 }
