@@ -1,10 +1,12 @@
 use ast::{ASTCreator, AST};
 use core::panic;
+use dependancy_graph::DependancyGraph;
 use std::collections::HashMap;
 use tokenizer::ExpressionTokenizer;
 
 use crate::raw_spreadsheet::{Index, RawCell, RawSpreadSheet};
 mod ast;
+mod dependancy_graph;
 mod tokenizer;
 
 #[derive(Debug)]
@@ -23,6 +25,7 @@ enum ParsedCell {
 #[derive(Debug)]
 pub struct ParsedSheet {
     pub cells: HashMap<Index, ParsedCell>,
+    pub dependencies: DependancyGraph,
     width: usize,
     height: usize,
 }
@@ -40,13 +43,14 @@ impl CellParser {
         ParsedSheet {
             cells: parsed_rows,
             width: ss.width,
+            dependencies: todo!(),
             height: ss.height,
         }
     }
 
     fn parse_cell(rs: RawCell) -> ParsedCell {
         let inner = rs.0;
-        
+
         if inner.len() == 0 {
             unreachable!()
         }
