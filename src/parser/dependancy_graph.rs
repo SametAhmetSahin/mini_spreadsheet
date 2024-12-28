@@ -1,32 +1,40 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, vec};
+use std::hash::Hash;
 
 use crate::raw_spreadsheet::Index;
 
-use super::ParsedCell;
+use super::{Expression, ParsedCell};
 
 #[derive(Debug)]
-pub struct DependancyGraph{ 
-    /// Holds a topologically sorted graph of all dependencies
-    inner : HashMap<Index, Vec<Index>>,
+pub struct DependancyGraph {
+    // Calculating one key should allow us to calculate the its values
+    inner: HashMap<Index, Vec<Index>>,
 }
 
 impl DependancyGraph {
-    pub fn new(cells : HashMap<Index, ParsedCell>) -> Self{
-        todo!()
+    pub fn new(parsed_cells: HashMap<Index, ParsedCell>) -> Self {
+        let mut inner: HashMap<Index, Vec<Index>> = HashMap::new();
+
+
+        for (key, value) in parsed_cells {
+            if let ParsedCell::Expr(Expression { dependencies, .. }) = value {
+                for dependency in dependencies {
+                    inner.entry(dependency).or_default().push(key);
+                }
+            }
+        }
+
+        DependancyGraph { inner }
     }
 
-    pub fn get_all_dependants(&self, cell : &Index) -> Option<&Vec<Index>> {
-        self.inner.get(&cell)
+    pub fn add_cell(&mut self, cell : Index, dependencies : Vec<Index>){
+        for dependency in dependencies {
+            self.inner.entry(dependency).or_default().push(cell);
+        }
     }
 
-    pub fn add_cell(&mut self, cell : &Index) {
-        todo!();
+    pub fn remove_cell(&mut self, cell : &Index){
+        self.inner.remove(&cell);
     }
-    pub fn remove_cell(&mut self, cell : &Index) {
-        todo!();
-    }
-
-    pub fn mutate_cell(&mut self, cell: &Index){
-        todo!();
-    }
+    
 }

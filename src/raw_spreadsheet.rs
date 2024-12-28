@@ -2,10 +2,10 @@ use std::{cmp::max, collections::HashMap, fmt::Display, fs::File, io::Read, path
 
 pub struct RawCell(pub String);
 
-#[derive(PartialEq, Hash, Eq, Debug)]
+#[derive(PartialEq, Hash, Eq, Debug, Clone, Copy)]
 pub struct Index {
-    x: usize,
-    y: usize,
+    pub x: usize,
+    pub y: usize,
 }
 
 /// Represents a spread sheet where the inputs have not been processed

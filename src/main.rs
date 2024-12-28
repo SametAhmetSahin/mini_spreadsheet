@@ -12,3 +12,5 @@ fn main() {
     let parsed_cells = CellParser::parse_raw(raw_cells);
     println!("{:?}", parsed_cells);
 }
+
+// TODO represent cells in a single data structure where each cell can have 3 states : raw, parsed, computed

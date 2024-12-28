@@ -1,4 +1,4 @@
-use ast::{ASTCreator, AST};
+use ast::{ASTCreator, Token, AST};
 use core::panic;
 use dependancy_graph::DependancyGraph;
 use std::collections::HashMap;
@@ -10,12 +10,13 @@ mod dependancy_graph;
 mod tokenizer;
 
 #[derive(Debug)]
-struct Expression {
+pub struct Expression {
     ast: AST,
+    dependencies : Vec<Index>,
 }
 
 #[derive(Debug)]
-enum ParsedCell {
+pub enum ParsedCell {
     Text(String),
     Number(f64),
     Expr(Expression),
@@ -69,8 +70,22 @@ impl CellParser {
         let tokens = ExpressionTokenizer::new(s[1..].chars().collect())
             .tokenize_expression()
             .ok()?;
+        let dependencies = Self::find_dependants(&tokens);
         let ast = ASTCreator::new(tokens.into_iter()).parse().ok()?;
-        let expr = Expression { ast };
+        let expr = Expression { ast, dependencies };
         Some(ParsedCell::Expr(expr))
+    }
+
+    fn find_dependants(tokens: &Vec<Token>) -> Vec<Index> {
+        let cells = tokens.iter().filter_map(|x| match x {
+            Token::CellName(name) => Some(Self::get_cell_idx(name)),
+            _ => None,
+        }).collect();
+
+        cells
+    }
+
+    fn get_cell_idx(cell_name : &str) -> Index{
+        return Index{x: 0, y : 0}
     }
 }
