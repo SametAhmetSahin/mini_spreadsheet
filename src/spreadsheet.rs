@@ -1,81 +1,8 @@
-use parser::{ast::AST, ast_resolver::ASTResolver, dependancy_graph::DependancyGraph, CellParser};
+use parser::{dependancy_graph::DependancyGraph, CellParser};
 use std::{collections::HashMap, fs::File, io::Read, path::PathBuf};
+
+use crate::common_types::{Cell, Expression, Index, ParsedCell};
 mod parser;
-
-#[derive(Debug)]
-pub struct Expression {
-    ast: AST,
-    dependencies: Vec<Index>,
-}
-
-#[derive(Debug)]
-pub enum ParsedCell {
-    Text(String),
-    Number(f64),
-    Expr(Expression),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Value {
-    Text(String),
-    Number(f64),
-}
-
-impl Value {
-    fn add(&self, other: Value) -> Option<Value> {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Some(Value::Number(a + b)),
-            (Value::Text(a), Value::Text(b)) => Some(Value::Text(a.clone() + &b)),
-            _ => None,
-        }
-    }
-
-    fn sub(&self, other: Value) -> Option<Value> {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Some(Value::Number(a - b)),
-            _ => None,
-        }
-    }
-
-    fn div(&self, other: Value) -> Option<Value> {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Some(Value::Number(a / b)),
-            _ => None,
-        }
-    }
-
-    fn mult(&self, other: Value) -> Option<Value> {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => Some(Value::Number(a * b)),
-            _ => None,
-        }
-    }
-}
-
-
-
-#[derive(Debug)]
-pub struct Cell {
-    pub raw_representation: String,
-    pub parsed_representation: Option<ParsedCell>,
-    pub computed_value: Option<Value>,
-}
-
-impl Cell {
-    fn from_raw(raw: String) -> Self {
-        Self {
-            raw_representation: raw,
-            parsed_representation: None,
-            computed_value: None,
-        }
-    }
-}
-
-#[derive(PartialEq, Hash, Eq, Debug, Clone, Copy)]
-pub struct Index {
-    pub x: usize,
-    pub y: usize,
-}
 
 #[derive(Debug, Default)]
 pub struct SpreadSheet {

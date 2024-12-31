@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::spreadsheet::{Index, Value};
 
-use super::ast::AST;
+use crate::common_types::{Index, Token, Value, AST};
+
 
 pub trait VarContext {
     fn get_variable(&self, index: Index) -> Option<Value>;
@@ -32,16 +32,16 @@ impl ASTResolver {
             AST::Value(value) => value,
             AST::CellName(name) => variables.get_variable(Self::get_cell_idx(&name)).unwrap(),
             AST::BinaryOp { op, left, right } => match op {
-                super::ast::Token::Plus => {
+                Token => {
                     Self::resolve(*left, variables).add(Self::resolve(*right, variables)).unwrap()
                 }
-                super::ast::Token::Minus => {
+                Token::Minus => {
                     Self::resolve(*left, variables).sub(Self::resolve(*right, variables)).unwrap()
                 }
-                super::ast::Token::Division => {
+                Token::Division => {
                     Self::resolve(*left, variables).div(Self::resolve(*right, variables)).unwrap()
                 }
-                super::ast::Token::Multiply => {
+                Token::Multiply => {
                     Self::resolve(*left, variables).mult(Self::resolve(*right, variables)).unwrap()
                 }
                 other => panic!("{:?} is not a binary operator", other),
@@ -73,7 +73,6 @@ impl ASTResolver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::spreadsheet::{parser::ast::Token, Index, Value};
     use std::collections::HashMap;
 
     #[test]

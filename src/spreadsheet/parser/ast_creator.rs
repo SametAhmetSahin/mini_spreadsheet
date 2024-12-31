@@ -1,39 +1,7 @@
 use std::iter::Peekable;
 
-use crate::spreadsheet::Value;
+use crate::common_types::{Token, Value, AST};
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Token {
-    CellName(String),
-    Number(f64),
-    Plus,
-    Minus,
-    Division,
-    Multiply,
-    LParen,
-    RParen,
-}
-
-impl Token {
-    fn get_precedence(&self) -> usize {
-        match &self {
-            Token::Plus | Token::Minus => 1,
-            Token::Division | Token::Multiply => 2,
-            _ => 0,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum AST {
-    CellName(String),
-    Value(Value),
-    BinaryOp {
-        op: Token,
-        left: Box<AST>,
-        right: Box<AST>,
-    },
-}
 
 pub struct ASTCreator<I>
 where
@@ -57,7 +25,7 @@ where
         }
     }
 
-    pub fn parse(&mut self) -> Result<AST, ParseError> {
+    pub fn parse(&mut self) -> Result<crate::common_types::AST, ParseError> {
         self.parse_expression(0)
     }
 

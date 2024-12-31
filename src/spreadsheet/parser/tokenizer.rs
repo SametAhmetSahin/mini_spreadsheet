@@ -1,4 +1,4 @@
-use super::ast::Token;
+use crate::common_types::Token;
 
 pub struct ExpressionTokenizer {
     index: usize,
