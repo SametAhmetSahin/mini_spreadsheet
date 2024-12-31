@@ -1,4 +1,5 @@
 use ast::{ASTCreator, Token, AST};
+use ast_resolver::ASTResolver;
 use core::panic;
 use dependancy_graph::DependancyGraph;
 use std::collections::HashMap;
@@ -9,6 +10,7 @@ use super::{Cell, Expression, Index, ParsedCell};
 pub mod ast;
 pub mod dependancy_graph;
 pub mod tokenizer;
+pub mod ast_resolver;
 
 pub struct CellParser {}
 
@@ -45,7 +47,7 @@ impl CellParser {
         let cells = tokens
             .iter()
             .filter_map(|x| match x {
-                Token::CellName(name) => Some(Self::get_cell_idx(name)),
+                Token::CellName(name) => Some(ASTResolver::get_cell_idx(name)),
                 _ => None,
             })
             .collect();
@@ -53,22 +55,4 @@ impl CellParser {
         cells
     }
 
-    fn get_cell_idx(cell_name: &str) -> Index {
-        let mut x: usize = 0; 
-        let mut y = 0;  
-    
-        for (i, c) in cell_name.chars().enumerate() {
-            if c.is_digit(10) {
-                // Parse row number
-                y = cell_name[i..].parse::<usize>().expect("Invalid row number");
-                break;
-            } else {
-                // Parse column letters
-                x = x * 26 + (c as usize - 'A' as usize + 1);
-            }
-        }
-    
-        // Adjust for 0-based indexing
-        Index { x: x - 1, y: y - 1 }
-    }
 }

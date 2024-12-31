@@ -1,4 +1,4 @@
-use parser::{ast::AST, dependancy_graph::DependancyGraph, CellParser};
+use parser::{ast::AST, ast_resolver::ASTResolver, dependancy_graph::DependancyGraph, CellParser};
 use std::{collections::HashMap, fs::File, io::Read, path::PathBuf};
 mod parser;
 
@@ -15,8 +15,44 @@ pub enum ParsedCell {
     Expr(Expression),
 }
 
-#[derive(Debug)]
-pub struct Value;
+#[derive(Debug, PartialEq, Clone)]
+pub enum Value {
+    Text(String),
+    Number(f64),
+}
+
+impl Value {
+    fn add(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Number(a), Value::Number(b)) => Some(Value::Number(a + b)),
+            (Value::Text(a), Value::Text(b)) => Some(Value::Text(a.clone() + &b)),
+            _ => None,
+        }
+    }
+
+    fn sub(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Number(a), Value::Number(b)) => Some(Value::Number(a - b)),
+            _ => None,
+        }
+    }
+
+    fn div(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Number(a), Value::Number(b)) => Some(Value::Number(a / b)),
+            _ => None,
+        }
+    }
+
+    fn mult(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Number(a), Value::Number(b)) => Some(Value::Number(a * b)),
+            _ => None,
+        }
+    }
+}
+
+
 
 #[derive(Debug)]
 pub struct Cell {
@@ -57,6 +93,10 @@ impl SpreadSheet {
             self.dependencies.add_cell(index, dependencies);
         }
         self.cells.insert(index, cell);
+    }
+
+    pub fn compute_cell(&mut self, cell: Cell) {
+        todo!()
     }
 
     pub fn from_file_path(input_path: PathBuf) -> Self {

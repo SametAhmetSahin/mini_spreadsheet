@@ -1,5 +1,7 @@
 use std::iter::Peekable;
 
+use crate::spreadsheet::Value;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     CellName(String),
@@ -25,6 +27,7 @@ impl Token {
 #[derive(Debug, PartialEq)]
 pub enum AST {
     CellName(String),
+    Value(Value),
     BinaryOp {
         op: Token,
         left: Box<AST>,
@@ -85,6 +88,7 @@ where
     fn parse_primary(&mut self) -> Result<AST, ParseError> {
         match self.tokens.next() {
             Some(Token::CellName(n)) => Ok(AST::CellName(n)),
+            Some(Token::Number(n)) => Ok(AST::Value(Value::Number(n))),
             Some(Token::LParen) => {
                 let expr = self.parse_expression(0)?;
                 match self.tokens.next() {
