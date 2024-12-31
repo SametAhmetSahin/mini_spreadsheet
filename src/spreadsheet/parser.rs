@@ -3,14 +3,14 @@ use ast_resolver::ASTResolver;
 use core::panic;
 use tokenizer::ExpressionTokenizer;
 
-use crate::common_types::Token;
+use crate::common_types::{Token, Value};
 
 use super::{Cell, Expression, Index, ParsedCell};
 
 pub mod ast_creator;
+pub mod ast_resolver;
 pub mod dependancy_graph;
 pub mod tokenizer;
-pub mod ast_resolver;
 
 pub struct CellParser {}
 
@@ -24,10 +24,10 @@ impl CellParser {
         let parsed_cell = match raw_cell.chars().nth(0).expect("Should never fail") {
             '=' => Self::parse_expression(&raw_cell).unwrap(),
             num if num.is_digit(10) => match raw_cell.parse() {
-                Ok(number) => ParsedCell::Number(number),
+                Ok(number) => ParsedCell::Value(Value::Number(number)),
                 Err(e) => panic!("Had error: -{e}- parsing number {raw_cell}"),
             },
-            _ => ParsedCell::Text(raw_cell.to_string()),
+            _ => ParsedCell::Value(Value::Text(raw_cell.to_string())),
         };
 
         cell.parsed_representation = Some(parsed_cell);
@@ -54,5 +54,4 @@ impl CellParser {
 
         cells
     }
-
 }

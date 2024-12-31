@@ -20,7 +20,7 @@ impl Token {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum AST {
     CellName(String),
     Value(Value),
@@ -32,16 +32,15 @@ pub enum AST {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Expression {
     pub ast: AST,
     pub dependencies: Vec<Index>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParsedCell {
-    Text(String),
-    Number(f64),
+    Value(Value),
     Expr(Expression),
 }
 
@@ -84,7 +83,7 @@ impl Value {
 
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Cell {
     pub raw_representation: String,
     pub parsed_representation: Option<ParsedCell>,
@@ -101,7 +100,7 @@ impl Cell {
     }
 }
 
-#[derive(PartialEq, Hash, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Hash, Eq, Debug, Clone, Copy, Ord, PartialOrd)]
 pub struct Index {
     pub x: usize,
     pub y: usize,

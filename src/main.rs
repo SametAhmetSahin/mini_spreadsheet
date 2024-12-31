@@ -6,6 +6,9 @@ mod spreadsheet;
 
 fn main() {
     let input = Path::new("csv").join("sum.csv");
-    let spread_sheet = SpreadSheet::from_file_path(input);
-    println!("{:?}",  &spread_sheet);
+    let mut spread_sheet = SpreadSheet::from_file_path(input);
+    spread_sheet.compute_all();
+    for (k,v) in spread_sheet.cells {
+        println!("{:?} {:?}", k, v.computed_value)
+    }
 }
