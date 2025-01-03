@@ -33,7 +33,7 @@ impl ASTResolver {
                     Token::Multiply => left_resolved
                         .mult(right_resolved)
                         .ok_or(ComputeError::TypeError),
-                    other => panic!("{:?} is not a binary operator", other), // I think this is  unreachable
+                    other => panic!("{other:?} is not a binary operator"), // I think this is  unreachable
                 }
             }
         }

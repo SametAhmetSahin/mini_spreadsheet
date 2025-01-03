@@ -54,7 +54,7 @@ impl ExpressionTokenizer {
 
         // Ensure there are letters
         if cell_name.is_empty() {
-            return Err(TokenizeError::InvalidCellName("".to_string()));
+            return Err(TokenizeError::InvalidCellName(String::new()));
         }
 
         // Collect the digits

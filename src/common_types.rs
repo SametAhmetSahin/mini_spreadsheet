@@ -11,7 +11,7 @@ pub enum Token {
 }
 
 impl Token {
-    pub fn get_precedence(&self) -> usize {
+    #[must_use] pub fn get_precedence(&self) -> usize {
         match &self {
             Token::Plus | Token::Minus => 1,
             Token::Division | Token::Multiply => 2,
@@ -50,7 +50,7 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn add(&self, other: Value) -> Option<Value> {
+    #[must_use] pub fn add(&self, other: Value) -> Option<Value> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Some(Value::Number(a + b)),
             (Value::Text(a), Value::Text(b)) => Some(Value::Text(a.clone() + &b)),
@@ -58,21 +58,21 @@ impl Value {
         }
     }
 
-    pub fn sub(&self, other: Value) -> Option<Value> {
+    #[must_use] pub fn sub(&self, other: Value) -> Option<Value> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Some(Value::Number(a - b)),
             _ => None,
         }
     }
 
-    pub fn div(&self, other: Value) -> Option<Value> {
+    #[must_use] pub fn div(&self, other: Value) -> Option<Value> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Some(Value::Number(a / b)),
             _ => None,
         }
     }
 
-    pub fn mult(&self, other: Value) -> Option<Value> {
+    #[must_use] pub fn mult(&self, other: Value) -> Option<Value> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Some(Value::Number(a * b)),
             _ => None,
@@ -99,7 +99,7 @@ pub struct Cell {
 }
 
 impl Cell {
-    pub fn from_raw(raw: String) -> Self {
+    #[must_use] pub fn from_raw(raw: String) -> Self {
         Self {
             raw_representation: raw,
             parsed_representation: None,

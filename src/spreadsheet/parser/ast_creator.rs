@@ -69,10 +69,7 @@ where
 
     fn peek_operator(&mut self) -> Option<Token> {
         match self.tokens.peek() {
-            Some(Token::Plus)
-            | Some(Token::Minus)
-            | Some(Token::Multiply)
-            | Some(Token::Division) => self.tokens.peek().cloned(),
+            Some(Token::Plus | Token::Minus | Token::Multiply | Token::Division) => self.tokens.peek().cloned(),
             _ => None,
         }
     }
