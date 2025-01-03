@@ -31,7 +31,6 @@ pub enum AST {
     },
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Expression {
     pub ast: AST,
@@ -81,13 +80,21 @@ impl Value {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ParseError(pub String);
 
+#[derive(Debug, Clone)]
+pub enum ComputeError {
+    ParseError(String),
+    TypeError,
+    UnfindableReference(String),
+}
 
 #[derive(Debug, Clone)]
 pub struct Cell {
     pub raw_representation: String,
-    pub parsed_representation: Option<ParsedCell>,
-    pub computed_value: Option<Value>,
+    pub parsed_representation: Option<Result<ParsedCell, ParseError>>,
+    pub computed_value: Option<Result<Value, ComputeError>>,
 }
 
 impl Cell {

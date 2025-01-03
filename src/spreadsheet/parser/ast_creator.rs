@@ -2,7 +2,6 @@ use std::iter::Peekable;
 
 use crate::common_types::{Token, Value, AST};
 
-
 pub struct ASTCreator<I>
 where
     I: Iterator<Item = Token>,
@@ -10,7 +9,7 @@ where
     tokens: Peekable<I>,
 }
 #[derive(Debug)]
-pub enum ParseError {
+pub enum ASTCreateError {
     UnexpectedToken,
     MismatchedParentheses,
 }
@@ -25,11 +24,11 @@ where
         }
     }
 
-    pub fn parse(&mut self) -> Result<crate::common_types::AST, ParseError> {
+    pub fn parse(&mut self) -> Result<crate::common_types::AST, ASTCreateError> {
         self.parse_expression(0)
     }
 
-    fn parse_expression(&mut self, min_precedence: usize) -> Result<AST, ParseError> {
+    fn parse_expression(&mut self, min_precedence: usize) -> Result<AST, ASTCreateError> {
         // Min presedence arguement is important for recursive calls where it may be higher than 1
 
         let mut left = self.parse_primary()?;
@@ -53,7 +52,7 @@ where
         Ok(left)
     }
 
-    fn parse_primary(&mut self) -> Result<AST, ParseError> {
+    fn parse_primary(&mut self) -> Result<AST, ASTCreateError> {
         match self.tokens.next() {
             Some(Token::CellName(n)) => Ok(AST::CellName(n)),
             Some(Token::Number(n)) => Ok(AST::Value(Value::Number(n))),
@@ -61,10 +60,10 @@ where
                 let expr = self.parse_expression(0)?;
                 match self.tokens.next() {
                     Some(Token::RParen) => Ok(expr),
-                    _ => Err(ParseError::MismatchedParentheses),
+                    _ => Err(ASTCreateError::MismatchedParentheses),
                 }
             }
-            _ => Err(ParseError::UnexpectedToken),
+            _ => Err(ASTCreateError::UnexpectedToken),
         }
     }
 
@@ -172,7 +171,7 @@ mod tests {
         ];
         let mut parser = ASTCreator::new(tokens.into_iter());
         let result = parser.parse();
-        assert!(matches!(result, Err(ParseError::MismatchedParentheses)));
+        assert!(matches!(result, Err(ASTCreateError::MismatchedParentheses)));
     }
 
     #[test]
@@ -180,7 +179,7 @@ mod tests {
         let tokens = vec![Token::Plus, Token::CellName("A1".to_string())];
         let mut parser = ASTCreator::new(tokens.into_iter());
         let result = parser.parse();
-        assert!(matches!(result, Err(ParseError::UnexpectedToken)));
+        assert!(matches!(result, Err(ASTCreateError::UnexpectedToken)));
     }
 
     #[test]

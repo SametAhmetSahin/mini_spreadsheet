@@ -1,39 +1,41 @@
-use std::collections::HashMap;
-
-
-use crate::common_types::{Index, Token, Value, AST};
-
+use crate::common_types::{ComputeError, Index, Token, Value, AST};
 
 pub trait VarContext {
-    fn get_variable(&self, index: Index) -> Option<Value>;
+    fn get_variable(&self, index: Index) -> Option<Result<Value, ComputeError>>;
 }
-
 
 pub struct ASTResolver {}
 
 impl ASTResolver {
-    pub fn resolve(ast: &AST, variables: &dyn VarContext) -> Value {
+    pub fn resolve(ast: &AST, variables: &dyn VarContext) -> Result<Value, ComputeError> {
         match ast {
-            AST::Value(value) => value.clone(),
+            AST::Value(value) => Ok(value.clone()),
             AST::CellName(name) => match variables.get_variable(Self::get_cell_idx(&name)) {
-                Some(value) => value,
-                None => panic!("Could not find variable {name} with in context"),
-            }
-            AST::BinaryOp { op, left, right } => match op {
-                Token::Plus => {
-                    Self::resolve(&left, variables).add(Self::resolve(&right, variables)).unwrap()
-                }
-                Token::Minus => {
-                    Self::resolve(&left, variables).sub(Self::resolve(&right, variables)).unwrap()
-                }
-                Token::Division => {
-                    Self::resolve(&left, variables).div(Self::resolve(&right, variables)).unwrap()
-                }
-                Token::Multiply => {
-                    Self::resolve(&left, variables).mult(Self::resolve(&right, variables)).unwrap()
-                }
-                other => panic!("{:?} is not a binary operator", other),
+                Some(value) => Ok(value.unwrap()),
+                None => Err(ComputeError::UnfindableReference(format!(
+                    "Could not find variable {name} with in context"
+                ))),
             },
+            AST::BinaryOp { op, left, right } => {
+                let left_resolved = Self::resolve(&left, variables)?;
+                let right_resolved = Self::resolve(&right, variables)?;
+
+                match op {
+                    Token::Plus => left_resolved
+                        .add(right_resolved)
+                        .ok_or(ComputeError::TypeError),
+                    Token::Minus => left_resolved
+                        .sub(right_resolved)
+                        .ok_or(ComputeError::TypeError),
+                    Token::Division => left_resolved
+                        .div(right_resolved)
+                        .ok_or(ComputeError::TypeError),
+                    Token::Multiply => left_resolved
+                        .mult(right_resolved)
+                        .ok_or(ComputeError::TypeError),
+                    other => panic!("{:?} is not a binary operator", other), // I think this is  unreachable
+                }
+            }
         }
     }
 
@@ -57,35 +59,33 @@ impl ASTResolver {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
 
     struct MockVarContext {
-        variables : HashMap<Index, Value>
+        variables: HashMap<Index, Value>,
     }
-    
+
     impl VarContext for MockVarContext {
-        fn get_variable(&self, index: Index) -> Option<Value> {
-            self.variables.get(&index).cloned()
+        fn get_variable(&self, index: Index) -> Option<Result<Value, ComputeError>> {
+            self.variables.get(&index).cloned().map(Ok)
         }
     }
-    
+
     impl MockVarContext {
         fn new(variables: HashMap<Index, Value>) -> Self {
             Self { variables }
         }
     }
-    
 
     #[test]
     fn test_resolve_value_ast() {
         let variables = MockVarContext::new(HashMap::new());
         let ast = AST::Value(Value::Number(42.0));
-        
-        let result = ASTResolver::resolve(&ast, &variables);
+
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
         assert_eq!(result, Value::Number(42.0));
     }
 
@@ -97,7 +97,7 @@ mod tests {
         let variables = MockVarContext::new(vars);
         let ast = AST::CellName("A1".to_string());
 
-        let result = ASTResolver::resolve(&ast, &variables);
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
         assert_eq!(result, Value::Number(10.0));
     }
 
@@ -114,7 +114,7 @@ mod tests {
             right: Box::new(AST::CellName("B1".to_string())),
         };
 
-        let result = ASTResolver::resolve(&ast, &variables);
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
         assert_eq!(result, Value::Number(30.0));
     }
 
@@ -131,7 +131,7 @@ mod tests {
             right: Box::new(AST::CellName("B1".to_string())),
         };
 
-        let result = ASTResolver::resolve(&ast, &variables);
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
         assert_eq!(result, Value::Number(10.0));
     }
 
@@ -148,7 +148,7 @@ mod tests {
             right: Box::new(AST::CellName("B1".to_string())),
         };
 
-        let result = ASTResolver::resolve(&ast, &variables);
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
         assert_eq!(result, Value::Number(12.0));
     }
 
@@ -165,7 +165,7 @@ mod tests {
             right: Box::new(AST::CellName("B1".to_string())),
         };
 
-        let result = ASTResolver::resolve(&ast, &variables);
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
         assert_eq!(result, Value::Number(5.0));
     }
 
@@ -176,7 +176,7 @@ mod tests {
         let ast = AST::CellName("A1".to_string());
 
         // This should panic because "A1" is not in the context
-        ASTResolver::resolve(&ast, &variables);
+        ASTResolver::resolve(&ast, &variables).unwrap();
     }
 
     #[test]
@@ -197,7 +197,7 @@ mod tests {
             right: Box::new(AST::CellName("C1".to_string())),
         };
 
-        let result = ASTResolver::resolve(&ast, &variables);
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
         assert_eq!(result, Value::Number(10.0));
     }
 
@@ -219,8 +219,7 @@ mod tests {
             right: Box::new(AST::CellName("C1".to_string())),
         };
 
-        let result = ASTResolver::resolve(&ast, &variables);
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
         assert_eq!(result, Value::Number(3.0));
     }
-
 }

@@ -5,7 +5,7 @@ use parser::{
 };
 use std::{collections::HashMap, fs::File, io::Read, path::PathBuf};
 
-use crate::common_types::{Cell, Expression, Index, ParsedCell, Value};
+use crate::common_types::{Cell, ComputeError, Expression, Index, ParsedCell, Value};
 mod parser;
 
 #[derive(Debug, Default)]
@@ -15,28 +15,34 @@ pub struct SpreadSheet {
 }
 
 impl VarContext for SpreadSheet {
-    fn get_variable(&self, index: Index) -> Option<Value> {
+    fn get_variable(&self, index: Index) -> Option<Result<Value, ComputeError>> {
         self.cells.get(&index)?.computed_value.clone()
     }
 }
 
 impl SpreadSheet {
-    pub fn add_and_parse_raw(&mut self, index: Index, mut cell: Cell) {
+    pub fn parse_and_add_raw(&mut self, index: Index, mut cell: Cell) {
         CellParser::parse_cell(&mut cell);
-        if let Some(ParsedCell::Expr(Expression {
+
+        if let Some(Ok(ParsedCell::Expr(Expression {
             ref dependencies, ..
-        })) = cell.parsed_representation
+        }))) = cell.parsed_representation
         {
             self.dependencies.add_cell(index, dependencies);
         }
         self.cells.insert(index, cell);
     }
 
-    pub fn compute_cell(&self, cell: &Cell) -> Option<Value> {
+    pub fn compute_cell(&self, cell: &Cell) -> Option<Result<Value, ComputeError>> {
         if let Some(parsed_cell) = &cell.parsed_representation {
             match parsed_cell {
-                ParsedCell::Expr(expression) => Some(ASTResolver::resolve(&expression.ast, self)),
-                ParsedCell::Value(value) => Some(value.clone()),
+                Ok(inner) => match inner {
+                    ParsedCell::Expr(expression) => {
+                        Some(ASTResolver::resolve(&expression.ast, self))
+                    }
+                    ParsedCell::Value(value) => Some(Ok(value.clone())),
+                },
+                Err(e) => Some(Err(ComputeError::ParseError(e.0.clone()))),
             }
         } else {
             None
@@ -57,7 +63,7 @@ impl SpreadSheet {
                 if cell.is_empty() {
                     continue;
                 }
-                spreadsheet.add_and_parse_raw(Index { x, y }, Cell::from_raw(cell));
+                spreadsheet.parse_and_add_raw(Index { x, y }, Cell::from_raw(cell));
             }
         }
 
@@ -65,14 +71,14 @@ impl SpreadSheet {
     }
 
     pub fn compute_all(&mut self) {
-        let mut indices_ordered : Vec<Index>= self.cells.keys().cloned().collect::<Vec<Index>>();
+        let mut indices_ordered: Vec<Index> = self.cells.keys().cloned().collect::<Vec<Index>>();
         indices_ordered.sort();
 
-        for k in indices_ordered{
-            let cell = self.cells.get(&k).unwrap();
+        for k in indices_ordered {
+            let cell = self.cells.get(&k).expect("should not fail");
             let computed = self.compute_cell(cell);
 
-            let cell = self.cells.get_mut(&k).unwrap();
+            let cell = self.cells.get_mut(&k).expect("should not fail");
             cell.computed_value = computed;
         }
     }

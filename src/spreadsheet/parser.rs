@@ -1,9 +1,8 @@
-use ast_creator::ASTCreator;
+use ast_creator::{ASTCreateError, ASTCreator};
 use ast_resolver::ASTResolver;
-use core::panic;
 use tokenizer::ExpressionTokenizer;
 
-use crate::common_types::{Token, Value};
+use crate::common_types::{ParseError, Token, Value};
 
 use super::{Cell, Expression, Index, ParsedCell};
 
@@ -22,25 +21,45 @@ impl CellParser {
         }
 
         let parsed_cell = match raw_cell.chars().nth(0).expect("Should never fail") {
-            '=' => Self::parse_expression(&raw_cell).unwrap(),
+            '=' => Self::parse_expression(&raw_cell),
             num if num.is_digit(10) => match raw_cell.parse() {
-                Ok(number) => ParsedCell::Value(Value::Number(number)),
-                Err(e) => panic!("Had error: -{e}- parsing number {raw_cell}"),
+                Ok(number) => Ok(ParsedCell::Value(Value::Number(number))),
+                Err(e) => Err(ParseError(format!(
+                    "Had error: -{e}- parsing number {raw_cell}"
+                ))),
             },
-            _ => ParsedCell::Value(Value::Text(raw_cell.to_string())),
+            _ => Ok(ParsedCell::Value(Value::Text(raw_cell.to_string()))),
         };
 
         cell.parsed_representation = Some(parsed_cell);
     }
 
-    fn parse_expression(s: &str) -> Option<ParsedCell> {
+    fn parse_expression(s: &str) -> Result<ParsedCell, ParseError> {
         let tokens = ExpressionTokenizer::new(s[1..].chars().collect())
             .tokenize_expression()
-            .ok()?;
+            .map_err(|e| match e {
+                tokenizer::TokenizeError::UnexpectedCharacter(c) => {
+                    ParseError(format!("Unexpected characther: {c}"))
+                }
+                tokenizer::TokenizeError::InvalidCellName(name) => {
+                    ParseError(format!("Invalid cell name: {name}"))
+                }
+                tokenizer::TokenizeError::InvalidNumber(num) => {
+                    ParseError(format!("Invalid number format: {num}"))
+                }
+            })?;
+
         let dependencies = Self::find_dependants(&tokens);
-        let ast = ASTCreator::new(tokens.into_iter()).parse().ok()?;
+        let ast = ASTCreator::new(tokens.into_iter())
+            .parse()
+            .map_err(|e| match e {
+                ASTCreateError::UnexpectedToken => ParseError("Unexpected Token".to_string()),
+                ASTCreateError::MismatchedParentheses => {
+                    ParseError("Mismatched Parentheses".to_string())
+                }
+            })?;
         let expr = Expression { ast, dependencies };
-        Some(ParsedCell::Expr(expr))
+        Ok(ParsedCell::Expr(expr))
     }
 
     fn find_dependants(tokens: &Vec<Token>) -> Vec<Index> {
