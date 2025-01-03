@@ -16,13 +16,13 @@ pub struct CellParser {}
 impl CellParser {
     pub fn parse_cell(cell: &mut Cell) {
         let raw_cell = &cell.raw_representation;
-        if raw_cell.len() == 0 {
+        if raw_cell.is_empty() {
             unreachable!()
         }
 
         let parsed_cell = match raw_cell.chars().nth(0).expect("Should never fail") {
-            '=' => Self::parse_expression(&raw_cell),
-            num if num.is_digit(10) => match raw_cell.parse() {
+            '=' => Self::parse_expression(raw_cell),
+            num if num.is_ascii_digit() => match raw_cell.parse() {
                 Ok(number) => Ok(ParsedCell::Value(Value::Number(number))),
                 Err(e) => Err(ParseError(format!(
                     "Had error: -{e}- parsing number {raw_cell}"
@@ -62,7 +62,7 @@ impl CellParser {
         Ok(ParsedCell::Expr(expr))
     }
 
-    fn find_dependants(tokens: &Vec<Token>) -> Vec<Index> {
+    fn find_dependants(tokens: &[Token]) -> Vec<Index> {
         let cells = tokens
             .iter()
             .filter_map(|x| match x {

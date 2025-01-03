@@ -24,7 +24,7 @@ impl ExpressionTokenizer {
             let token = match self.peek().expect("Should never fail") {
                 '+' | '-' | '/' | '*' | '(' | ')' => self.parse_operator(),
                 letter if letter.is_uppercase() => self.parse_cell_name()?,
-                digit if digit.is_digit(10) => self.parse_number()?,
+                digit if digit.is_ascii_digit() => self.parse_number()?,
                 unknown => return Err(TokenizeError::UnexpectedCharacter(*unknown)),
             };
 
@@ -116,7 +116,7 @@ impl ExpressionTokenizer {
     fn parse_number(&mut self) -> Result<Token, TokenizeError> {
         let mut number = String::new();
         while let Some(&ch) = self.peek() {
-            if ch.is_digit(10) || ch == '.' {
+            if ch.is_ascii_digit() || ch == '.' {
                 number.push(ch);
                 self.pop();
             } else {

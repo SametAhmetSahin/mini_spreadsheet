@@ -10,15 +10,15 @@ impl ASTResolver {
     pub fn resolve(ast: &AST, variables: &dyn VarContext) -> Result<Value, ComputeError> {
         match ast {
             AST::Value(value) => Ok(value.clone()),
-            AST::CellName(name) => match variables.get_variable(Self::get_cell_idx(&name)) {
+            AST::CellName(name) => match variables.get_variable(Self::get_cell_idx(name)) {
                 Some(value) => Ok(value.unwrap()),
                 None => Err(ComputeError::UnfindableReference(format!(
                     "Could not find variable {name} with in context"
                 ))),
             },
             AST::BinaryOp { op, left, right } => {
-                let left_resolved = Self::resolve(&left, variables)?;
-                let right_resolved = Self::resolve(&right, variables)?;
+                let left_resolved = Self::resolve(left, variables)?;
+                let right_resolved = Self::resolve(right, variables)?;
 
                 match op {
                     Token::Plus => left_resolved
@@ -44,7 +44,7 @@ impl ASTResolver {
         let mut y = 0;
 
         for (i, c) in cell_name.chars().enumerate() {
-            if c.is_digit(10) {
+            if c.is_ascii_digit() {
                 // Parse row number
                 y = cell_name[i..].parse::<usize>().expect("Invalid row number");
                 break;
