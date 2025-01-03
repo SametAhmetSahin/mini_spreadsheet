@@ -40,7 +40,7 @@ where
             }
             self.tokens.next(); // Consume the operator
 
-            let mut right = self.parse_expression(precedence + 1)?;
+            let right = self.parse_expression(precedence + 1)?;
 
             left = AST::BinaryOp {
                 op,

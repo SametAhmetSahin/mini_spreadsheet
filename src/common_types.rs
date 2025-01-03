@@ -88,6 +88,7 @@ pub enum ComputeError {
     ParseError(String),
     TypeError,
     UnfindableReference(String),
+    Cycle
 }
 
 #[derive(Debug, Clone)]

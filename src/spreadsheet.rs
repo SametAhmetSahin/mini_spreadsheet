@@ -1,6 +1,6 @@
 use parser::{
     ast_resolver::{ASTResolver, VarContext},
-    dependancy_graph::DependancyGraph,
+    dependancy_graph::{DependancyGraph, TopologicalSort},
     CellParser,
 };
 use std::{collections::HashMap, fs::File, io::Read, path::PathBuf};
@@ -30,6 +30,11 @@ impl SpreadSheet {
         {
             self.dependencies.add_cell(index, dependencies);
         }
+
+        if let Some(Ok(ParsedCell::Value(_))) = cell.parsed_representation {
+            self.dependencies.add_cell(index, &vec![]);
+        };
+
         self.cells.insert(index, cell);
     }
 
@@ -71,15 +76,19 @@ impl SpreadSheet {
     }
 
     pub fn compute_all(&mut self) {
-        let mut indices_ordered: Vec<Index> = self.cells.keys().cloned().collect::<Vec<Index>>();
-        indices_ordered.sort();
+        let TopologicalSort { sorted, cycles } = self.dependencies.topological_sort();
 
-        for k in indices_ordered {
-            let cell = self.cells.get(&k).expect("should not fail");
+        for idx in sorted {
+            let cell = self.cells.get(&idx).expect("should not fail");
             let computed = self.compute_cell(cell);
 
-            let cell = self.cells.get_mut(&k).expect("should not fail");
+            let cell = self.cells.get_mut(&idx).expect("should not fail");
             cell.computed_value = computed;
+        }
+
+        for idx in cycles {
+            let cell = self.cells.get_mut(&idx).expect("should not fail");
+            cell.computed_value = Some(Err(ComputeError::Cycle));
         }
     }
 }
