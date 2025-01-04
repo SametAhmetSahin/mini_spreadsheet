@@ -3,7 +3,7 @@ use parser::{
     dependancy_graph::{DependancyGraph, TopologicalSort},
     CellParser,
 };
-use std::{cell, collections::HashMap, fs::File, io::Read, path::PathBuf};
+use std::{collections::HashMap, fs::File, io::Read, path::PathBuf};
 
 use crate::common_types::{Cell, ComputeError, Expression, Index, ParsedCell, Value};
 mod parser;
@@ -24,31 +24,36 @@ impl SpreadSheet {
     fn parse_and_add_raw(&mut self, index: Index, mut cell: Cell) {
         CellParser::parse_cell(&mut cell);
 
-        if let Some(Ok(ParsedCell::Expr(Expression {
-            ref dependencies, ..
-        }))) = cell.parsed_representation
-        {
-            self.dependencies.add_node(index, dependencies);
-        } else {
-            self.dependencies.add_node(index, &vec![]);
-        };
+        self.add_dependencies(index, &cell);
 
         self.cells.insert(index, cell);
     }
 
-    fn compute_cell(&self, cell: &Cell) -> Option<Result<Value, ComputeError>> {
-        if let Some(parsed_cell) = &cell.parsed_representation {
-            match parsed_cell {
-                Ok(inner) => match inner {
-                    ParsedCell::Expr(expression) => {
-                        Some(ASTResolver::resolve(&expression.ast, self))
-                    }
-                    ParsedCell::Value(value) => Some(Ok(value.clone())),
-                },
-                Err(e) => Some(Err(ComputeError::ParseError(e.0.clone()))),
-            }
+    /// Adds the dependency graph for a cell based on its parsed representation.
+    fn add_dependencies(&mut self, index: Index, cell: &Cell) {
+        if let Some(Ok(ParsedCell::Expr(Expression { ref dependencies, .. }))) = cell.parsed_representation {
+            self.dependencies.change_node(index, dependencies);
         } else {
-            None
+            self.dependencies.change_node(index, &vec![]);
+        }
+    }
+
+    /// Updates the dependency graph for a cell based on its parsed representation.
+    fn update_dependencies(&mut self, index: Index, cell: &Cell) {
+        if let Some(Ok(ParsedCell::Expr(Expression { ref dependencies, .. }))) = cell.parsed_representation {
+            self.dependencies.add_node(index, dependencies);
+        } else {
+            self.dependencies.add_node(index, &vec![]);
+        }
+    }
+
+    /// Computes the value of a cell based on its parsed representation.
+    fn compute_cell(&self, cell: &Cell) -> Option<Result<Value, ComputeError>> {
+        match cell.parsed_representation {
+            Some(Ok(ParsedCell::Expr(ref expr))) => Some(ASTResolver::resolve(&expr.ast, self)),
+            Some(Ok(ParsedCell::Value(ref value))) => Some(Ok(value.clone())),
+            Some(Err(ref e)) => Some(Err(ComputeError::ParseError(e.0.clone()))),
+            None => None,
         }
     }
 
@@ -93,7 +98,6 @@ impl SpreadSheet {
             if !cell.needs_compute {
                 continue;
             }
-            println!("{idx:?}");
             cell.computed_value = Some(Err(ComputeError::Cycle));
         }
     }
@@ -106,14 +110,7 @@ impl SpreadSheet {
         let mut cell = Cell::from_raw(raw);
         CellParser::parse_cell(&mut cell);
 
-        if let Some(Ok(ParsedCell::Expr(Expression {
-            ref dependencies, ..
-        }))) = cell.parsed_representation
-        {
-            self.dependencies.add_node(index, dependencies);
-        } else {
-            self.dependencies.add_node(index, &vec![]);
-        };
+        self.add_dependencies(index, &cell);
 
         cell.computed_value = self.compute_cell(&cell);
         cell.needs_compute = false;
@@ -126,10 +123,9 @@ impl SpreadSheet {
         self.cells.remove(&index);
 
         for dep in self.dependencies.get_all_dependants(index) {
-            self.cells
-                .get_mut(&dep)
-                .expect("should not fail")
-                .needs_compute = true;
+            if let Some(cell) = self.cells.get_mut(&dep) {
+                cell.needs_compute = true;
+            }
         }
 
         self.compute_all();
@@ -141,19 +137,14 @@ impl SpreadSheet {
         new_cell.computed_value = self.compute_cell(&new_cell);
         new_cell.needs_compute = false;
 
+        self.update_dependencies(index, &new_cell);
+
         let cell = self
             .cells
             .get_mut(&index)
             .expect("Expected valid index for mutate cell");
         *cell = new_cell;
-        if let Some(Ok(ParsedCell::Expr(Expression {
-            ref dependencies, ..
-        }))) = cell.parsed_representation
-        {
-            self.dependencies.change_node(index, dependencies);
-        } else {
-            self.dependencies.change_node(index, &vec![]);
-        };
+
 
         for dep in self.dependencies.get_all_dependants(index) {
             self.cells

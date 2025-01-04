@@ -1,9 +1,10 @@
-use std::{collections::{HashMap, HashSet}, vec};
+use std::collections::HashMap;
 
 use crate::spreadsheet::Index;
 
 #[derive(Debug, Default)]
 pub struct DependancyGraph {
+    //? It is possible to speed up change and remove node from O(n) time to O(1) by adding the field depends on. This can be done in the future to boost performance.
     allows_compute: HashMap<Index, Vec<Index>>, // Given a key return nodes this node allows for compute
 }
 
@@ -71,11 +72,11 @@ impl DependancyGraph {
     }
 
     pub fn remove_node(&mut self, index: Index) {
-        // Remove all edges going to the given node
+        // Remove all edges going to the given node and the node itself
         for dependants in self.allows_compute.values_mut() {
             dependants.retain(|&x| x != index);
         }
-        
+        self.allows_compute.remove(&index);
     }
 
     pub fn change_node(&mut self, index: Index, dependencies: &Vec<Index>) {
