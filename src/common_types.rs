@@ -115,6 +115,7 @@ impl Display for ComputeError {
 
 #[derive(Debug, Clone)]
 pub struct Cell {
+    pub needs_compute : bool,
     pub raw_representation: String,
     pub parsed_representation: Option<Result<ParsedCell, ParseError>>,
     pub computed_value: Option<Result<Value, ComputeError>>,
@@ -127,6 +128,7 @@ impl Cell {
             raw_representation: raw,
             parsed_representation: None,
             computed_value: None,
+            needs_compute: true,
         }
     }
 }

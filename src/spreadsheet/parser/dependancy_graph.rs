@@ -1,11 +1,10 @@
-use std::{collections::HashMap, vec};
+use std::{collections::{HashMap, HashSet}, vec};
 
 use crate::spreadsheet::Index;
 
 #[derive(Debug, Default)]
 pub struct DependancyGraph {
-    // Calculating one key should allow us to calculate the its values
-    inner: HashMap<Index, Vec<Index>>,
+    allows_compute: HashMap<Index, Vec<Index>>, // Given a key return nodes this node allows for compute
 }
 
 #[derive(Debug)]
@@ -15,11 +14,11 @@ pub struct TopologicalSort {
 }
 
 impl DependancyGraph {
-    pub fn add_cell(&mut self, cell: Index, dependencies: &Vec<Index>) {
-        self.inner.entry(cell).or_default();
+    pub fn add_node(&mut self, idx: Index, cel_depends_on: &Vec<Index>) {
+        self.allows_compute.entry(idx).or_default();
 
-        for dependency in dependencies {
-            self.inner.entry(*dependency).or_default().push(cell);
+        for dependency in cel_depends_on {
+            self.allows_compute.entry(*dependency).or_default().push(idx);
         }
     }
 
@@ -30,7 +29,7 @@ impl DependancyGraph {
         let mut cycles: Vec<Index> = vec![];
 
         // Calculate in-degrees for all nodes
-        for (node, dependents) in &self.inner {
+        for (node, dependents) in &self.allows_compute {
             in_degree.entry(*node).or_insert(0); // Ensure all nodes exist in the map
             for dependent in dependents {
                 *in_degree.entry(*dependent).or_insert(0) += 1;
@@ -49,7 +48,7 @@ impl DependancyGraph {
             sorted.push(node);
 
             // Decrease the in-degree of all its dependents
-            if let Some(dependents) = self.inner.get(&node) {
+            if let Some(dependents) = self.allows_compute.get(&node) {
                 for dependent in dependents {
                     if let Some(degree) = in_degree.get_mut(dependent) {
                         *degree -= 1;
@@ -69,5 +68,38 @@ impl DependancyGraph {
         }
 
         TopologicalSort { sorted, cycles }
+    }
+
+    pub fn remove_node(&mut self, index: Index) {
+        // Remove all edges going to the given node
+        for dependants in self.allows_compute.values_mut() {
+            dependants.retain(|&x| x != index);
+        }
+        
+    }
+
+    pub fn change_node(&mut self, index: Index, dependencies: &Vec<Index>) {
+        self.remove_node(index);
+        // Re-add the node with the new dependencies
+        self.add_node(index, dependencies);
+    }
+
+    /// Return all nodes that depend on this
+    pub fn get_all_dependants(&self, index: Index) -> Vec<Index> {        
+        let mut result = Vec::new();
+        let mut to_process = vec![index];
+
+        while let Some(cell) = to_process.pop() {
+            if let Some(dependants) = self.allows_compute.get(&cell) {
+                for dependant in dependants {
+                    if !result.contains(dependant) {
+                        result.push(*dependant);
+                        to_process.push(*dependant);
+                    }
+                }
+            }
+        }
+
+        result
     }
 }
