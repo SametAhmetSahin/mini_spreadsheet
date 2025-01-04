@@ -16,7 +16,7 @@ pub struct SpreadSheet {
 
 impl VarContext for SpreadSheet {
     fn get_variable(&self, index: Index) -> Option<Result<Value, ComputeError>> {
-        self.cells.get(&index)?.computed_value.clone()
+        self.get_computed(index)
     }
 }
 
@@ -90,5 +90,9 @@ impl SpreadSheet {
             let cell = self.cells.get_mut(&idx).expect("should not fail");
             cell.computed_value = Some(Err(ComputeError::Cycle));
         }
+    }
+
+    pub fn get_computed(&self, index: Index) -> Option<Result<Value, ComputeError>> {
+        self.cells.get(&index)?.computed_value.clone()
     }
 }

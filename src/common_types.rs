@@ -1,3 +1,5 @@
+use std::fmt::{write, Display};
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     CellName(String),
@@ -49,6 +51,15 @@ pub enum Value {
     Number(f64),
 }
 
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Text(s) => write!(f, "{s}"),
+            Value::Number(num) => write!(f, "{num}"),
+        }
+    }
+}
+
 impl Value {
     #[must_use] pub fn add(&self, other: Value) -> Option<Value> {
         match (self, other) {
@@ -91,6 +102,17 @@ pub enum ComputeError {
     Cycle
 }
 
+impl Display for ComputeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ComputeError::ParseError(_) => write!(f, "!PARSE ERROR!"),
+            ComputeError::TypeError => write!(f, "!TYPE ERROR!"),
+            ComputeError::UnfindableReference(_) => write!(f, "!REFERENCE ERROR!"),
+            ComputeError::Cycle => write!(f, "!CYCLIC REFERENCE!"),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Cell {
     pub raw_representation: String,
@@ -99,7 +121,8 @@ pub struct Cell {
 }
 
 impl Cell {
-    #[must_use] pub fn from_raw(raw: String) -> Self {
+    #[must_use]
+    pub fn from_raw(raw: String) -> Self {
         Self {
             raw_representation: raw,
             parsed_representation: None,
