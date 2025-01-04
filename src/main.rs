@@ -1,5 +1,6 @@
 use std::path::Path;
 pub mod common_types;
+use renderer::GUIState;
 use spreadsheet::SpreadSheet;
 
 mod spreadsheet;
@@ -17,10 +18,12 @@ async fn main() {
         println!("{:?} {:?}", k, v.computed_value);
     }
 
+    let mut gui_state = GUIState::new();
+
     loop {
         clear_background(WHITE);
 
-        renderer::render_spread_sheet(&spread_sheet);
+        renderer::render_spread_sheet(&spread_sheet,  &mut gui_state);
 
         next_frame().await
     }
