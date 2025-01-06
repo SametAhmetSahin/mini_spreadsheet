@@ -115,6 +115,17 @@ impl SpreadSheet {
         cell.computed_value = self.compute_cell(&cell);
         cell.needs_compute = false;
         self.cells.insert(index, cell);
+
+        let mut need_compute = false;
+        for dep in self.dependencies.get_all_dependants(index) {
+            if let Some(cell) = self.cells.get_mut(&dep) {
+                cell.needs_compute = true;
+                need_compute = true;
+            }
+        }
+        if need_compute {
+            self.compute_all();
+        }
     }
 
     pub fn remove_cell(&mut self, index: Index) {
@@ -122,13 +133,16 @@ impl SpreadSheet {
         self.dependencies.remove_node(index);
         self.cells.remove(&index);
 
+        let mut need_compute = false;
         for dep in self.dependencies.get_all_dependants(index) {
             if let Some(cell) = self.cells.get_mut(&dep) {
                 cell.needs_compute = true;
+                need_compute = true;
             }
         }
-
-        self.compute_all();
+        if need_compute {
+            self.compute_all();
+        }
     }
 
     pub fn mutate_cell(&mut self, index: Index, new_raw: String) {
@@ -146,13 +160,15 @@ impl SpreadSheet {
         *cell = new_cell;
 
 
+        let mut need_compute = false;
         for dep in self.dependencies.get_all_dependants(index) {
-            self.cells
-                .get_mut(&dep)
-                .expect("should not fail")
-                .needs_compute = true;
+            if let Some(cell) = self.cells.get_mut(&dep) {
+                cell.needs_compute = true;
+                need_compute = true;
+            }
         }
-
-        self.compute_all();
+        if need_compute {
+            self.compute_all();
+        }
     }
 }
