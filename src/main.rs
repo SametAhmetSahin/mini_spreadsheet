@@ -1,10 +1,9 @@
 use std::path::Path;
 pub mod common_types;
 use common_types::Index;
-use iced::widget::text_editor::Edit;
 use iced::widget::{button, column, container, row, text, text_editor};
 use iced::Length::{Fill, Shrink};
-use iced::{window, Border, Color, Element, Font, Subscription, Task, Theme};
+use iced::{window, Color, Element, Font, Subscription, Task, Theme};
 use spreadsheet::SpreadSheet;
 
 mod renderer;
@@ -12,7 +11,6 @@ mod spreadsheet;
 
 #[derive(Debug, Clone)]
 enum Message {
-    AddRaw { idx: Index, raw: String },
     WindowResized(iced::Size),
     Edit(text_editor::Action),
     CellPressed(Index),
@@ -42,11 +40,6 @@ impl GUI {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::AddRaw { idx, raw } => {
-                self.spread_sheet.add_cell_and_compute(idx, raw);
-                Task::none()
-            }
-
             Message::WindowResized(_size) => Task::none(),
             Message::Edit(action) => {
                 self.editor_content.perform(action);
@@ -57,14 +50,22 @@ impl GUI {
                 if let Some(previous) = self.selected_cell {
                     if previous != index {
                         let new_content = self.editor_content.text().trim().to_string();
-                        let previous_content = self.spread_sheet.get_raw(&previous).unwrap_or_default();
-                        println!("The editor has the content: {new_content:?}, the cell had content {previous_content:?}");
-                        if new_content != previous_content {
-                            println!("Mutated!: idx: {previous:?}  to: {new_content}");
-                            self.spread_sheet.mutate_cell(previous, new_content);
+                        let previous_content =
+                            self.spread_sheet.get_raw(&previous).unwrap_or_default();
+
+                        match (previous_content, new_content.as_str()) {
+                            (prev, new) if prev == new => (),
+                            ("", "") => (),
+                            ("", _added_content) => self
+                                .spread_sheet
+                                .add_cell_and_compute(previous, new_content),
+                            (_deleted_content, "") => self.spread_sheet.remove_cell(previous),
+                            (_mutated_from, _mutated_to) => {
+                                self.spread_sheet.mutate_cell(previous, new_content)
+                            }
                         }
                     }
-                } 
+                }
                 self.selected_cell = Some(index);
 
                 if let Some(raw) = self.spread_sheet.get_raw(&index) {
@@ -121,9 +122,10 @@ impl GUI {
 }
 
 fn main() -> iced::Result {
-    let input = Path::new("csv").join("nested.csv");
-    let mut spread_sheet = SpreadSheet::from_file_path(input);
-    spread_sheet.compute_all();
+    let spread_sheet = SpreadSheet::default();
+    // let input = Path::new("csv").join("nested.csv");
+    // let mut spread_sheet = SpreadSheet::from_file_path(input);
+    // spread_sheet.compute_all();
 
     iced::application("Mini Spreadsheet", GUI::update, GUI::view)
         .theme(GUI::theme)

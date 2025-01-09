@@ -31,19 +31,25 @@ impl SpreadSheet {
 
     /// Adds the dependency graph for a cell based on its parsed representation.
     fn add_dependencies(&mut self, index: Index, cell: &Cell) {
-        if let Some(Ok(ParsedCell::Expr(Expression { ref dependencies, .. }))) = cell.parsed_representation {
-            self.dependencies.change_node(index, dependencies);
+        if let Some(Ok(ParsedCell::Expr(Expression {
+            ref dependencies, ..
+        }))) = cell.parsed_representation
+        {
+            self.dependencies.add_node(index, dependencies);
         } else {
-            self.dependencies.change_node(index, &vec![]);
+            self.dependencies.add_node(index, &vec![]);
         }
     }
 
     /// Updates the dependency graph for a cell based on its parsed representation.
     fn update_dependencies(&mut self, index: Index, cell: &Cell) {
-        if let Some(Ok(ParsedCell::Expr(Expression { ref dependencies, .. }))) = cell.parsed_representation {
-            self.dependencies.add_node(index, dependencies);
+        if let Some(Ok(ParsedCell::Expr(Expression {
+            ref dependencies, ..
+        }))) = cell.parsed_representation
+        {
+            self.dependencies.change_node(index, dependencies);
         } else {
-            self.dependencies.add_node(index, &vec![]);
+            self.dependencies.change_node(index, &vec![]);
         }
     }
 
@@ -82,7 +88,9 @@ impl SpreadSheet {
         let TopologicalSort { sorted, cycles } = self.dependencies.topological_sort();
 
         for idx in sorted {
-            let cell = self.cells.get(&idx).expect("should not fail");
+            let Some(cell) = self.cells.get(&idx) else {
+                continue;
+            };
             if !cell.needs_compute {
                 continue;
             }
@@ -106,9 +114,8 @@ impl SpreadSheet {
         self.cells.get(&index)?.computed_value.clone()
     }
 
-    
-    pub fn get_text(&self, index: Index)-> String{
-        match self.get_computed(index){
+    pub fn get_text(&self, index: Index) -> String {
+        match self.get_computed(index) {
             Some(value) => match value {
                 Ok(inner) => inner.to_string(),
                 Err(err) => err.to_string(),
@@ -140,10 +147,6 @@ impl SpreadSheet {
     }
 
     pub fn remove_cell(&mut self, index: Index) {
-        // Remove from dependencies
-        self.dependencies.remove_node(index);
-        self.cells.remove(&index);
-
         let mut need_compute = false;
         for dep in self.dependencies.get_all_dependants(index) {
             if let Some(cell) = self.cells.get_mut(&dep) {
@@ -151,6 +154,10 @@ impl SpreadSheet {
                 need_compute = true;
             }
         }
+
+        self.dependencies.remove_node(index);
+        self.cells.remove(&index);
+
         if need_compute {
             self.compute_all();
         }
@@ -170,7 +177,6 @@ impl SpreadSheet {
             .expect("Expected valid index for mutate cell");
         *cell = new_cell;
 
-
         let mut need_compute = false;
         for dep in self.dependencies.get_all_dependants(index) {
             if let Some(cell) = self.cells.get_mut(&dep) {
@@ -182,7 +188,7 @@ impl SpreadSheet {
             self.compute_all();
         }
     }
-    
+
     pub fn get_raw(&self, index: &Index) -> Option<&str> {
         Some(&self.cells.get(&index)?.raw_representation)
     }

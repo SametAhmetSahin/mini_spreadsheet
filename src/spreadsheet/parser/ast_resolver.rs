@@ -11,7 +11,7 @@ impl ASTResolver {
         match ast {
             AST::Value(value) => Ok(value.clone()),
             AST::CellName(name) => match variables.get_variable(Self::get_cell_idx(name)) {
-                Some(value) => Ok(value.unwrap()),
+                Some(value) => value,
                 None => Err(ComputeError::UnfindableReference(format!(
                     "Could not find variable {name} with in context"
                 ))),
