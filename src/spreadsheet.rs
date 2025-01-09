@@ -106,6 +106,17 @@ impl SpreadSheet {
         self.cells.get(&index)?.computed_value.clone()
     }
 
+    
+    pub fn get_text(&self, index: Index)-> String{
+        match self.get_computed(index){
+            Some(value) => match value {
+                Ok(inner) => inner.to_string(),
+                Err(err) => err.to_string(),
+            },
+            None => String::new(),
+        }
+    }
+
     pub fn add_cell_and_compute(&mut self, index: Index, raw: String) {
         let mut cell = Cell::from_raw(raw);
         CellParser::parse_cell(&mut cell);
@@ -170,5 +181,9 @@ impl SpreadSheet {
         if need_compute {
             self.compute_all();
         }
+    }
+    
+    pub fn get_raw(&self, index: &Index) -> Option<&str> {
+        Some(&self.cells.get(&index)?.raw_representation)
     }
 }
