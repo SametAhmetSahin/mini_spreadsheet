@@ -1,6 +1,7 @@
 use std::path::Path;
 pub mod common_types;
 use common_types::Index;
+use iced::highlighter::{self, Highlighter};
 use iced::widget::{button, column, container, row, text, text_editor};
 use iced::Length::{Fill, Shrink};
 use iced::{window, Color, Element, Font, Subscription, Task, Theme};
@@ -85,38 +86,47 @@ impl GUI {
 
     fn view(&self) -> Element<Message> {
         container(column![
-                container(
-                    text_editor(&self.editor_content)
-                        .placeholder("Type something here...")
-                        .on_action(Message::Edit)
-                )
-                .padding(20)
-                .height(Shrink)
-                .width(Fill)
-                .center_x(Fill)
-                .style(|_| container::Style::default()
-                    .background(iced::Color::new(1.0, 0.0, 0.0, 1.0))),
-                container(column((0..10).map(|y| {
-                    row((0..10).map(|x| {
-                        container(
-                            button(text(self.spread_sheet.get_text(Index { x, y })))
-                                .on_press(Message::CellPressed(Index { x, y })),
-                        )
-                        .width(Fill)
-                        .height(Fill)
-                        .center(Fill)
-                        .style(|_| container::bordered_box(&self.theme()))
-                        .into()
-                    }))
+            container(
+                text_editor(&self.editor_content).on_action(Message::Edit) // .highlight("rs", highlighter::Theme::SolarizedDark)
+            )
+            .padding(20)
+            .height(Shrink)
+            .width(Fill)
+            .center_x(Fill),
+            container(column((0..10).map(|y| {
+                row((0..10).map(|x| {
+                    container(
+                        button(if Some(Index { x, y }) == self.selected_cell {
+                            text(
+                                self.editor_content.text()
+                            )
+                        } else {
+                            text(self.spread_sheet.get_text(Index { x, y }))
+                        })
+                        .on_press(Message::CellPressed(Index { x, y }))
+                        .style(|_, _| button::primary(&self.theme(), button::Status::Active)),
+                    )
                     .width(Fill)
                     .height(Fill)
+                    .center(Fill)
+                    .style(move |_| {
+                        if Some(Index { x, y }) == self.selected_cell {
+                            container::bordered_box(&self.theme())
+                        } else {
+                            container::bordered_box(&Theme::CatppuccinFrappe)
+                        }
+                    })
                     .into()
-                })))
-                .height(Fill)
+                }))
                 .width(Fill)
-                .center(Fill)
-                .padding(10u16)
-            ])
+                .height(Fill)
+                .into()
+            })))
+            .height(Fill)
+            .width(Fill)
+            .center(Fill)
+            .padding(10u16)
+        ])
         .into()
     }
 }
