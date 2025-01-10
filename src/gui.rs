@@ -80,46 +80,58 @@ impl GUI {
     }
 
     fn view(&self) -> Element<Message> {
-        container(column![
-            container(
-                text_editor(&self.editor_content).on_action(Message::Edit) // .highlight("rs", highlighter::Theme::SolarizedDark)
-            )
+        let editor = self.view_editor();
+        let grid = self.view_grid();
+
+        container(column![editor, grid]).padding(10).into()
+    }
+
+    fn view_editor(&self) -> Element<Message> {
+        container(text_editor(&self.editor_content).on_action(Message::Edit))
             .padding(20)
             .height(Shrink)
             .width(Fill)
-            .center_x(Fill),
-            container(column((0..10).map(|y| {
-                row((0..10).map(|x| {
-                    container(
-                        button(if Some(Index { x, y }) == self.selected_cell {
-                            text(self.editor_content.text())
-                        } else {
-                            text(self.spread_sheet.get_text(Index { x, y }))
-                        })
-                        .on_press(Message::CellPressed(Index { x, y }))
-                        .style(|_, _| button::primary(&self.theme(), button::Status::Active)),
-                    )
-                    .width(Fill)
-                    .height(Fill)
-                    .center(Fill)
-                    .style(move |_| {
-                        if Some(Index { x, y }) == self.selected_cell {
-                            container::bordered_box(&self.theme())
-                        } else {
-                            container::bordered_box(&Theme::CatppuccinFrappe)
-                        }
-                    })
-                    .into()
-                }))
-                .width(Fill)
-                .height(Fill)
-                .into()
-            })))
+            .center_x(Fill)
+            .into()
+    }
+
+    fn view_grid(&self) -> Element<Message> {
+        container(column((0..10).map(|y| self.view_row(y))))
             .height(Fill)
             .width(Fill)
             .center(Fill)
-            .padding(10u16)
-        ])
+            .into()
+    }
+
+    fn view_row(&self, y: usize) -> Element<Message> {
+        row((0..10).map(|x| self.view_cell(Index { x, y })))
+            .width(Fill)
+            .height(Fill)
+            .into()
+    }
+
+    fn view_cell(&self, index: Index) -> Element<Message> {
+        let content = if Some(index) == self.selected_cell {
+            text(self.editor_content.text())
+        } else {
+            text(self.spread_sheet.get_text(index))
+        };
+
+        container(
+            button(content)
+                .on_press(Message::CellPressed(index))
+                .style(|_, _| button::primary(&self.theme(), button::Status::Active)),
+        )
+        .width(Fill)
+        .height(Fill)
+        .center(Fill)
+        .style(move |_| {
+            if Some(index) == self.selected_cell {
+                container::bordered_box(&self.theme())
+            } else {
+                container::bordered_box(&Theme::CatppuccinFrappe)
+            }
+        })
         .into()
     }
 }
