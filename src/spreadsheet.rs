@@ -193,3 +193,140 @@ impl SpreadSheet {
         Some(&self.cells.get(&index)?.raw_representation)
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_empty_ref() {
+        let mut spreadsheet = SpreadSheet::default();
+        let a1 = Index { x: 0, y: 0 };
+
+        spreadsheet.add_cell_and_compute(a1, "=A5".to_string());
+
+        assert!(matches!(
+            spreadsheet.get_computed(a1),
+            Some(Err(ComputeError::UnfindableReference(_)))
+        ));
+    }
+
+    #[test]
+    fn test_circular() {
+        let mut spreadsheet = SpreadSheet::default();
+        let a1 = Index { x: 0, y: 0 };
+        let a2 = Index { x: 0, y: 1 };
+        spreadsheet.add_cell_and_compute(a1, "=A2".to_string());
+        spreadsheet.add_cell_and_compute(a2, "=A1".to_string());
+
+        assert!(matches!(
+            spreadsheet.get_computed(a1),
+            Some(Err(ComputeError::Cycle))
+        ));
+
+        assert!(matches!(
+            spreadsheet.get_computed(a2),
+            Some(Err(ComputeError::Cycle))
+        ));
+    }
+
+    #[test]
+    fn test_mutate() {
+        let mut spreadsheet = SpreadSheet::default();
+        let a1 = Index { x: 0, y: 0 };
+        let a2 = Index { x: 0, y: 1 };
+        let a3 = Index { x: 0, y: 2 };
+
+        spreadsheet.add_cell_and_compute(a3, "=A2 * 3".to_string());
+        spreadsheet.add_cell_and_compute(a2, "=A1 * 2".to_string());
+        spreadsheet.add_cell_and_compute(a1, "1".to_string());
+
+        assert!(matches!(
+            spreadsheet.get_computed(a2),
+            Some(Ok(Value::Number(2.0)))
+        ));
+
+        assert!(matches!(
+            spreadsheet.get_computed(a3),
+            Some(Ok(Value::Number(6.0)))
+        ));
+
+        spreadsheet.mutate_cell(a1, "7".to_string());
+        assert!(matches!(
+            spreadsheet.get_computed(a2),
+            Some(Ok(Value::Number(14.0)))
+        ));
+
+        assert!(matches!(
+            spreadsheet.get_computed(a3),
+            Some(Ok(Value::Number(42.0)))
+        ));
+    }
+
+    #[test]
+    fn test_remove_cell() {
+        let mut spreadsheet = SpreadSheet::default();
+        let a1 = Index { x: 0, y: 0 };
+        let a2 = Index { x: 0, y: 1 };
+
+        spreadsheet.add_cell_and_compute(a1, "10".to_string());
+        spreadsheet.add_cell_and_compute(a2, "=A1 * 2".to_string());
+
+        spreadsheet.remove_cell(a1);
+
+        assert!(matches!(
+            spreadsheet.get_computed(a2),
+            Some(Err(ComputeError::UnfindableReference(_)))
+        ));
+    }
+
+    #[test]
+    fn test_invalid_expression() {
+        let mut spreadsheet = SpreadSheet::default();
+        let a1 = Index { x: 0, y: 0 };
+
+        spreadsheet.add_cell_and_compute(a1, "=A1 +".to_string());
+
+        assert!(matches!(
+            spreadsheet.get_computed(a1),
+            Some(Err(ComputeError::ParseError(_)))
+        ));
+    }
+
+    #[test]
+    fn test_self_reference() {
+        let mut spreadsheet = SpreadSheet::default();
+        let a1 = Index { x: 0, y: 0 };
+
+        spreadsheet.add_cell_and_compute(a1, "=A1".to_string());
+
+        assert!(matches!(
+            spreadsheet.get_computed(a1),
+            Some(Err(ComputeError::Cycle))
+        ));
+    }
+
+    #[test]
+    fn test_indirect_circular_reference() {
+        let mut spreadsheet = SpreadSheet::default();
+        let a1 = Index { x: 0, y: 0 };
+        let b1 = Index { x: 1, y: 0 };
+        let c1 = Index { x: 2, y: 0 };
+
+        spreadsheet.add_cell_and_compute(a1, "=C1".to_string());
+        spreadsheet.add_cell_and_compute(b1, "=A1 * 2".to_string());
+        spreadsheet.add_cell_and_compute(c1, "=B1".to_string());
+
+        assert!(matches!(
+            spreadsheet.get_computed(a1),
+            Some(Err(ComputeError::Cycle))
+        ));
+        assert!(matches!(
+            spreadsheet.get_computed(b1),
+            Some(Err(ComputeError::Cycle))
+        ));
+        assert!(matches!(
+            spreadsheet.get_computed(c1),
+            Some(Err(ComputeError::Cycle))
+        ));
+    }
+}
