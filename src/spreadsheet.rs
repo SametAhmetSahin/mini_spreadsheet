@@ -329,4 +329,21 @@ mod tests {
             Some(Err(ComputeError::Cycle))
         ));
     }
+
+    #[test]
+    fn test_function_call(){
+        let mut spreadsheet = SpreadSheet::default();
+        let a1 = Index { x: 0, y: 0 };
+        let b1 = Index { x: 1, y: 0 };
+        let c1 = Index { x: 2, y: 0 };
+
+        spreadsheet.add_cell_and_compute(a1, "15".to_string());
+        spreadsheet.add_cell_and_compute(b1, "23".to_string());
+        spreadsheet.add_cell_and_compute(c1, "=sum(A1:B1)".to_string());
+        let computed = spreadsheet.get_computed(c1);
+        assert!(matches!(
+            computed,
+            Some(Ok(Value::Number(38.0)))
+        ));
+    }
 }

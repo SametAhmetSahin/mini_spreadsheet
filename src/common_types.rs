@@ -110,7 +110,8 @@ pub enum ComputeError {
     ParseError(String),
     TypeError,
     UnfindableReference(String),
-    Cycle
+    Cycle,
+    UnknownFunction,
 }
 
 impl Display for ComputeError {
@@ -120,6 +121,7 @@ impl Display for ComputeError {
             ComputeError::TypeError => write!(f, "!TYPE ERROR!"),
             ComputeError::UnfindableReference(_) => write!(f, "!REFERENCE ERROR!"),
             ComputeError::Cycle => write!(f, "!CYCLIC REFERENCE!"),
+            ComputeError::UnknownFunction => write!(f, "!UNKNOWN FUNCTION!"),
         }
     }
 }
