@@ -106,7 +106,7 @@ impl ExpressionTokenizer {
     }
 
     fn skip_whitespace(&mut self) -> bool {
-        while !self.is_done() && (self.peek() == Some(&' ') || self.peek() == Some(&'\n')) {
+        while !self.is_done() && self.peek().expect("Should not fail").is_ascii_whitespace() {
             self.pop();
         }
         // Some error occured
@@ -136,7 +136,7 @@ impl ExpressionTokenizer {
     fn parse_function_name(&mut self) -> Result<Token, TokenizeError> {
         let mut name = String::new();
         while let Some(&ch) = self.peek() {
-            if ch.is_ascii_digit() || ch == '_' {
+            if ch.is_ascii_alphabetic() || ch == '_' {
                 name.push(ch);
                 self.pop();
             } else {
@@ -390,6 +390,44 @@ mod tests {
         assert_eq!(
             tokens,
             vec![Token::Number(123.45), Token::Multiply, Token::Number(67.89),]
+        );
+    }
+
+    #[test]
+    fn test_expression_with_function_and_range() {
+        let s = "sum(A1:B1)";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::FunctionName("sum".to_string()),
+                Token::LParen,
+                Token::CellName("A1".to_string()),
+                Token::Colon,
+                Token::CellName("B1".to_string()),
+                Token::RParen
+            ]
+        );
+    }
+
+    #[test]
+    fn test_expression_with_function_multiple_args() {
+        let s = "sum(A1, C1)";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::FunctionName("sum".to_string()),
+                Token::LParen,
+                Token::CellName("A1".to_string()),
+                Token::Comma,
+                Token::CellName("C1".to_string()),
+                Token::RParen
+            ]
         );
     }
 }
