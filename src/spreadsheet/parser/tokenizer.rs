@@ -22,8 +22,9 @@ impl ExpressionTokenizer {
         let mut expr_tokens = Vec::new();
         while !self.is_done() {
             let token = match self.peek().expect("Should never fail") {
-                '+' | '-' | '/' | '*' | '(' | ')' => self.parse_operator(),
+                '+' | '-' | '/' | '*' | '(' | ')' | ':' | ',' => self.parse_operator(),
                 letter if letter.is_uppercase() => self.parse_cell_name()?,
+                letter if letter.is_lowercase() => self.parse_function_name()?,
                 digit if digit.is_ascii_digit() => self.parse_number()?,
                 unknown => return Err(TokenizeError::UnexpectedCharacter(*unknown)),
             };
@@ -84,6 +85,8 @@ impl ExpressionTokenizer {
             '*' => Token::Multiply,
             '(' => Token::LParen,
             ')' => Token::RParen,
+            ':' => Token::Colon,
+            ',' => Token::Comma,
             _ => unreachable!(),
         }
     }
@@ -128,6 +131,20 @@ impl ExpressionTokenizer {
             Ok(inner) => Ok(Token::Number(inner)),
             Err(_) => Err(TokenizeError::InvalidNumber(number)),
         }
+    }
+
+    fn parse_function_name(&mut self) -> Result<Token, TokenizeError> {
+        let mut name = String::new();
+        while let Some(&ch) = self.peek() {
+            if ch.is_ascii_digit() || ch == '_' {
+                name.push(ch);
+                self.pop();
+            } else {
+                break;
+            }
+        }
+
+        Ok(Token::FunctionName(name))
     }
 }
 

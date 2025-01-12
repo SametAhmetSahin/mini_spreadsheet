@@ -57,6 +57,7 @@ impl CellParser {
                 ASTCreateError::MismatchedParentheses => {
                     ParseError("Mismatched Parentheses".to_string())
                 }
+                ASTCreateError::InvalidRange =>  ParseError("Invalid Range Expression".to_string()),
             })?;
         let expr = Expression { ast, dependencies };
         Ok(ParsedCell::Expr(expr))

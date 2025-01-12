@@ -10,6 +10,9 @@ pub enum Token {
     Multiply,
     LParen,
     RParen,
+    Colon,
+    Comma,
+    FunctionName(String)
 }
 
 impl Token {
@@ -31,6 +34,14 @@ pub enum AST {
         left: Box<AST>,
         right: Box<AST>,
     },
+    Range {
+        from: String,
+        to: String,
+    },
+    FunctionCall {
+        name: String,
+        arguments: Vec<AST>, 
+    }
 }
 
 #[derive(Debug, Clone)]
