@@ -4,6 +4,7 @@ use std::fmt::Display;
 pub enum Token {
     CellName(String),
     Number(f64),
+    StringLiteral(String),
     Plus,
     Minus,
     Division,
@@ -91,7 +92,7 @@ impl Display for Value {
         match self {
             Value::Text(s) => write!(f, "{s}"),
             Value::Number(num) => write!(f, "{num}"),
-            Value::Bool(bool) => write!(f, "{bool}"),
+            Value::Bool(bool) => write!(f, "{}", bool.to_string().to_uppercase()),
         }
     }
 }

@@ -10,6 +10,7 @@ pub enum TokenizeError {
     UnexpectedCharacter(char),
     InvalidCellName(String),
     InvalidNumber(String),
+    UnterminatedString,
 }
 
 impl ExpressionTokenizer {
@@ -24,6 +25,7 @@ impl ExpressionTokenizer {
             let token = match self.peek().expect("Should never fail") {
                 '+' | '-' | '/' | '*' | '(' | ')' | ':' | ',' => self.parse_operator(),
                 '=' | '!' | '>' | '<' | '&' | '|' => self.parse_logical_operator()?,
+                '"' => self.parse_string_literal()?,
                 letter if letter.is_uppercase() => self.parse_cell_name_or_bool()?,
                 letter if letter.is_lowercase() => self.parse_function_name()?,
                 digit if digit.is_ascii_digit() => self.parse_number()?,
@@ -212,6 +214,26 @@ impl ExpressionTokenizer {
             _ => unreachable!(),
         };
         Ok(token)
+    }
+
+    fn parse_string_literal(&mut self) -> Result<Token, TokenizeError> {
+        assert!(matches!(self.pop(), Some('\"')));
+        let mut s = String::new();
+        let mut terminated = false;
+        while let Some(&ch) = self.pop() {
+            if ch != '\"' {
+                s.push(ch);
+            } else {
+                terminated = true;
+                break;
+            }
+        }
+
+        if terminated {
+            Ok(Token::StringLiteral(s))
+        } else {
+            Err(TokenizeError::UnterminatedString)
+        }
     }
 }
 
@@ -781,5 +803,73 @@ mod tests {
         );
     }
 
-   
+    #[test]
+    fn test_valid_string_literal() {
+        let s = "\"Hello, World!\"";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![Token::StringLiteral("Hello, World!".to_string())]
+        );
+    }
+
+    #[test]
+    fn test_empty_string_literal() {
+        let s = "\"\"";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(tokens, vec![Token::StringLiteral("".to_string())]);
+    }
+
+    #[test]
+    fn test_string_literal_with_special_characters() {
+        let s = "\"Hello, @#$%^&*()!\"";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![Token::StringLiteral("Hello, @#$%^&*()!".to_string())]
+        );
+    }
+
+    #[test]
+    fn test_unterminated_string_literal() {
+        let s = "\"Unterminated string";
+        let result = ExpressionTokenizer::new(s.chars().collect()).tokenize_expression();
+        assert!(matches!(result, Err(TokenizeError::UnterminatedString)));
+    }
+
+    #[test]
+    fn test_string_literal_with_whitespace() {
+        let s = "\"   Leading and trailing whitespace   \"";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![Token::StringLiteral(
+                "   Leading and trailing whitespace   ".to_string()
+            )]
+        );
+    }
+
+    #[test]
+    fn test_string_literal_in_expression() {
+        let s = "\"Hello\" + \"World\"";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::StringLiteral("Hello".to_string()),
+                Token::Plus,
+                Token::StringLiteral("World".to_string())
+            ]
+        );
+    }
 }

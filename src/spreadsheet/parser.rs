@@ -56,6 +56,9 @@ impl CellParser {
                 tokenizer::TokenizeError::InvalidNumber(num) => {
                     ParseError(format!("Invalid number format: {num}"))
                 }
+                tokenizer::TokenizeError::UnterminatedString => {
+                    ParseError(format!("Unterminated String"))
+                }
             })?;
 
         let dependencies = Self::find_dependants(&tokens);

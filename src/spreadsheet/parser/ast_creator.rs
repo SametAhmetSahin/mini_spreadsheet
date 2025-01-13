@@ -93,6 +93,7 @@ where
                 }
             }
             Some(Token::Number(n)) => Ok(AST::Value(Value::Number(n))),
+            Some(Token::StringLiteral(s)) => Ok(AST::Value(Value::Text(s))),
             Some(Token::LParen) => {
                 let expr = self.parse_expression(0)?;
                 match self.tokens.next() {
