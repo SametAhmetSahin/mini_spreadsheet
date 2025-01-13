@@ -28,7 +28,16 @@ impl CellParser {
                     "Had error: -{e}- parsing number {raw_cell}"
                 ))),
             },
-            _ => Ok(ParsedCell::Value(Value::Text(raw_cell.to_string()))),
+            _ => {
+                let s = raw_cell.to_string();
+                if s == "TRUE" {
+                    Ok(ParsedCell::Value(Value::Bool(true)))
+                } else if s == "FALSE" {
+                    Ok(ParsedCell::Value(Value::Bool(false)))
+                } else {
+                    Ok(ParsedCell::Value(Value::Text(s)))
+                }
+            }
         };
 
         cell.parsed_representation = Some(parsed_cell);
@@ -57,7 +66,7 @@ impl CellParser {
                 ASTCreateError::MismatchedParentheses => {
                     ParseError("Mismatched Parentheses".to_string())
                 }
-                ASTCreateError::InvalidRange =>  ParseError("Invalid Range Expression".to_string()),
+                ASTCreateError::InvalidRange => ParseError("Invalid Range Expression".to_string()),
             })?;
         let expr = Expression { ast, dependencies };
         Ok(ParsedCell::Expr(expr))

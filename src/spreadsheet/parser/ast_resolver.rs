@@ -35,7 +35,28 @@ impl ASTResolver {
                     Token::Multiply => left_resolved
                         .mult(right_resolved)
                         .ok_or(ComputeError::TypeError),
-                    other => panic!("{other:?} is not a binary operator"), // I think this is  unreachable
+
+                    Token::Equals => Ok(Value::Bool(left_resolved.eq(&right_resolved))),
+                    Token::NotEquals => Ok(Value::Bool(left_resolved.ne(&right_resolved))),
+                    Token::GreaterThan => left_resolved
+                        .greater_than(right_resolved)
+                        .ok_or(ComputeError::TypeError),
+                    Token::LessThan => left_resolved
+                        .less_than(right_resolved)
+                        .ok_or(ComputeError::TypeError),
+                    Token::GreaterEquals => left_resolved
+                        .greater_equals(right_resolved)
+                        .ok_or(ComputeError::TypeError),
+                    Token::LessEquals => left_resolved
+                        .less_equals(right_resolved)
+                        .ok_or(ComputeError::TypeError),
+                    Token::And => left_resolved
+                        .and(right_resolved)
+                        .ok_or(ComputeError::TypeError),
+                    Token::Or => left_resolved
+                        .or(right_resolved)
+                        .ok_or(ComputeError::TypeError),
+                    other => panic!("{other:?} is not a binary operator"),
                 }
             }
             AST::Range { from: _, to: _ } => {
@@ -61,6 +82,14 @@ impl ASTResolver {
                     func(resolved_args)
                 } else {
                     Err(ComputeError::UnknownFunction)
+                }
+            }
+            AST::UnaryOp { op, expr } => {
+                matches!(op, Token::Not);
+                if let Value::Bool(boolean) = Self::resolve(&expr, variables)? {
+                    Ok(Value::Bool(!boolean))
+                } else {
+                    Err(ComputeError::TypeError)
                 }
             }
         }
@@ -420,5 +449,182 @@ mod tests {
             let result = ASTResolver::resolve(&ast, &variables).unwrap();
             assert_eq!(result, Value::Number(0.0)); // Sum of empty range should be 0
         }
+    }
+
+    #[test]
+    fn test_simple_boolean_value() {
+        let variables = MockVarContext::new(HashMap::new());
+        let ast = AST::Value(Value::Bool(true));
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
+        assert_eq!(result, Value::Bool(true));
+    }
+
+    #[test]
+    fn test_logical_not() {
+        let variables = MockVarContext::new(HashMap::new());
+        let ast = AST::UnaryOp {
+            op: Token::Not,
+            expr: Box::new(AST::Value(Value::Bool(true))),
+        };
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
+        assert_eq!(result, Value::Bool(false));
+    }
+
+    #[test]
+    fn test_logical_and() {
+        let mut vars = HashMap::new();
+        vars.insert(Index { x: 0, y: 0 }, Value::Bool(true));
+        vars.insert(Index { x: 0, y: 1 }, Value::Bool(false));
+        let variables = MockVarContext::new(vars);
+
+        // Test true && false
+        let ast = AST::BinaryOp {
+            op: Token::And,
+            left: Box::new(AST::CellName("A1".to_string())),
+            right: Box::new(AST::CellName("A2".to_string())),
+        };
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
+        assert_eq!(result, Value::Bool(false));
+    }
+
+    #[test]
+    fn test_logical_or() {
+        let mut vars = HashMap::new();
+        vars.insert(Index { x: 0, y: 0 }, Value::Bool(true));
+        vars.insert(Index { x: 0, y: 1 }, Value::Bool(false));
+        let variables = MockVarContext::new(vars);
+
+        // Test true || false
+        let ast = AST::BinaryOp {
+            op: Token::Or,
+            left: Box::new(AST::CellName("A1".to_string())),
+            right: Box::new(AST::CellName("A2".to_string())),
+        };
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
+        assert_eq!(result, Value::Bool(true));
+    }
+
+    #[test]
+    fn test_comparison_operators() {
+        let mut vars = HashMap::new();
+        vars.insert(Index { x: 0, y: 0 }, Value::Number(10.0));
+        vars.insert(Index { x: 0, y: 1 }, Value::Number(20.0));
+        let variables = MockVarContext::new(vars);
+
+        // Test greater than
+        let ast = AST::BinaryOp {
+            op: Token::GreaterThan,
+            left: Box::new(AST::CellName("A1".to_string())),
+            right: Box::new(AST::CellName("A2".to_string())),
+        };
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
+        assert_eq!(result, Value::Bool(false));
+
+        // Test less than
+        let ast = AST::BinaryOp {
+            op: Token::LessThan,
+            left: Box::new(AST::CellName("A1".to_string())),
+            right: Box::new(AST::CellName("A2".to_string())),
+        };
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
+        assert_eq!(result, Value::Bool(true));
+    }
+
+    #[test]
+    fn test_equality_comparison() {
+        let mut vars = HashMap::new();
+        vars.insert(Index { x: 0, y: 0 }, Value::Number(10.0));
+        vars.insert(Index { x: 0, y: 1 }, Value::Number(10.0));
+        vars.insert(Index { x: 0, y: 2 }, Value::Text("hello".to_string()));
+        let variables = MockVarContext::new(vars);
+
+        // Test number equality
+        let ast = AST::BinaryOp {
+            op: Token::Equals,
+            left: Box::new(AST::CellName("A1".to_string())),
+            right: Box::new(AST::CellName("A2".to_string())),
+        };
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
+        assert_eq!(result, Value::Bool(true));
+
+        // Test different types equality
+        let ast = AST::BinaryOp {
+            op: Token::Equals,
+            left: Box::new(AST::CellName("A1".to_string())),
+            right: Box::new(AST::CellName("A3".to_string())),
+        };
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
+        assert_eq!(result, Value::Bool(false));
+    }
+
+    #[test]
+    fn test_complex_logical_expression() {
+        let mut vars = HashMap::new();
+        vars.insert(Index { x: 0, y: 0 }, Value::Bool(true));
+        vars.insert(Index { x: 0, y: 1 }, Value::Number(15.0));
+        vars.insert(Index { x: 0, y: 2 }, Value::Number(10.0));
+        let variables = MockVarContext::new(vars);
+
+        // Test (A1 && (A2 > A3))
+        let ast = AST::BinaryOp {
+            op: Token::And,
+            left: Box::new(AST::CellName("A1".to_string())),
+            right: Box::new(AST::BinaryOp {
+                op: Token::GreaterThan,
+                left: Box::new(AST::CellName("A2".to_string())),
+                right: Box::new(AST::CellName("A3".to_string())),
+            }),
+        };
+        let result = ASTResolver::resolve(&ast, &variables).unwrap();
+        assert_eq!(result, Value::Bool(true));
+    }
+
+    #[test]
+    fn test_type_error_in_logical_operation() {
+        let mut vars = HashMap::new();
+        vars.insert(Index { x: 0, y: 0 }, Value::Bool(true));
+        vars.insert(
+            Index { x: 0, y: 1 },
+            Value::Text("not a boolean".to_string()),
+        );
+        let variables = MockVarContext::new(vars);
+
+        let ast = AST::BinaryOp {
+            op: Token::And,
+            left: Box::new(AST::CellName("A1".to_string())),
+            right: Box::new(AST::CellName("A2".to_string())),
+        };
+        let result = ASTResolver::resolve(&ast, &variables);
+        assert!(matches!(result, Err(ComputeError::TypeError)));
+    }
+
+    #[test]
+    fn test_not_with_non_boolean() {
+        let mut vars = HashMap::new();
+        vars.insert(Index { x: 0, y: 0 }, Value::Number(42.0));
+        let variables = MockVarContext::new(vars);
+
+        let ast = AST::UnaryOp {
+            op: Token::Not,
+            expr: Box::new(AST::CellName("A1".to_string())),
+        };
+        let result = ASTResolver::resolve(&ast, &variables);
+        assert!(matches!(result, Err(ComputeError::TypeError)));
+    }
+
+    #[test]
+    fn test_comparison_type_mismatch() {
+        let mut vars = HashMap::new();
+        vars.insert(Index { x: 0, y: 0 }, Value::Number(42.0));
+        vars.insert(Index { x: 0, y: 1 }, Value::Bool(true));
+        let variables = MockVarContext::new(vars);
+
+        let ast = AST::BinaryOp {
+            op: Token::GreaterThan,
+            left: Box::new(AST::CellName("A1".to_string())),
+            right: Box::new(AST::CellName("A2".to_string())),
+        };
+        let result = ASTResolver::resolve(&ast, &variables);
+        assert!(matches!(result, Err(ComputeError::TypeError)));
     }
 }

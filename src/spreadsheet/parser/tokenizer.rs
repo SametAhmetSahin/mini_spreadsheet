@@ -23,7 +23,8 @@ impl ExpressionTokenizer {
         while !self.is_done() {
             let token = match self.peek().expect("Should never fail") {
                 '+' | '-' | '/' | '*' | '(' | ')' | ':' | ',' => self.parse_operator(),
-                letter if letter.is_uppercase() => self.parse_cell_name()?,
+                '=' | '!' | '>' | '<' | '&' | '|' => self.parse_logical_operator()?,
+                letter if letter.is_uppercase() => self.parse_cell_name_or_bool()?,
                 letter if letter.is_lowercase() => self.parse_function_name()?,
                 digit if digit.is_ascii_digit() => self.parse_number()?,
                 unknown => return Err(TokenizeError::UnexpectedCharacter(*unknown)),
@@ -37,31 +38,41 @@ impl ExpressionTokenizer {
         Ok(expr_tokens)
     }
 
-    fn parse_cell_name(&mut self) -> Result<Token, TokenizeError> {
+    fn parse_cell_name_or_bool(&mut self) -> Result<Token, TokenizeError> {
         // [A-Z]+\d+
 
         let mut is_valid = false;
-        let mut cell_name = String::new();
+        let mut letters = String::new();
 
         // Collect the uppercase letters
         while let Some(&ch) = self.peek() {
             if ch.is_ascii_uppercase() {
-                cell_name.push(ch);
+                letters.push(ch);
                 self.pop();
             } else {
                 break;
             }
         }
 
+        if letters == "TRUE" {
+            return Ok(Token::Bool(true));
+        }
+
+        if letters == "FALSE" {
+            return Ok(Token::Bool(false));
+        }
+
+        // At this point we know that we are parsing a Cell Name
+
         // Ensure there are letters
-        if cell_name.is_empty() {
+        if letters.is_empty() {
             return Err(TokenizeError::InvalidCellName(String::new()));
         }
 
         // Collect the digits
         while let Some(&ch) = self.peek() {
             if ch.is_ascii_digit() {
-                cell_name.push(ch);
+                letters.push(ch);
                 self.pop();
                 is_valid = true;
             } else {
@@ -71,10 +82,10 @@ impl ExpressionTokenizer {
 
         // Ensure the format was valid ``
         if !is_valid {
-            return Err(TokenizeError::InvalidCellName(cell_name));
+            return Err(TokenizeError::InvalidCellName(letters));
         }
 
-        Ok(Token::CellName(cell_name))
+        Ok(Token::CellName(letters))
     }
 
     fn parse_operator(&mut self) -> Token {
@@ -145,6 +156,62 @@ impl ExpressionTokenizer {
         }
 
         Ok(Token::FunctionName(name))
+    }
+
+    fn parse_logical_operator(&mut self) -> Result<Token, TokenizeError> {
+        let first = self.pop().expect("Should never fail");
+        let token = match first {
+            '=' => {
+                if let Some('=') = self.peek() {
+                    self.pop();
+                    Token::Equals
+                } else {
+                    return Err(TokenizeError::UnexpectedCharacter('='));
+                }
+            }
+            '!' => {
+                if let Some('=') = self.peek() {
+                    self.pop();
+                    Token::NotEquals
+                } else {
+                    Token::Not
+                }
+            }
+            '>' => {
+                if let Some('=') = self.peek() {
+                    self.pop();
+                    Token::GreaterEquals
+                } else {
+                    Token::GreaterThan
+                }
+            }
+            '<' => {
+                if let Some('=') = self.peek() {
+                    self.pop();
+                    Token::LessEquals
+                } else {
+                    Token::LessThan
+                }
+            }
+            '&' => {
+                if let Some('&') = self.peek() {
+                    self.pop();
+                    Token::And
+                } else {
+                    return Err(TokenizeError::UnexpectedCharacter('&'));
+                }
+            }
+            '|' => {
+                if let Some('|') = self.peek() {
+                    self.pop();
+                    Token::Or
+                } else {
+                    return Err(TokenizeError::UnexpectedCharacter('|'));
+                }
+            }
+            _ => unreachable!(),
+        };
+        Ok(token)
     }
 }
 
@@ -430,4 +497,289 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn test_simple_comparison() {
+        let s = "A1 == B1";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::CellName("A1".to_string()),
+                Token::Equals,
+                Token::CellName("B1".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_complex_logical_expression() {
+        let s = "A1 > B1 && C1 <= D1";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::CellName("A1".to_string()),
+                Token::GreaterThan,
+                Token::CellName("B1".to_string()),
+                Token::And,
+                Token::CellName("C1".to_string()),
+                Token::LessEquals,
+                Token::CellName("D1".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_not_equals_and_or() {
+        let s = "A1 != B1 || C1 != D1";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::CellName("A1".to_string()),
+                Token::NotEquals,
+                Token::CellName("B1".to_string()),
+                Token::Or,
+                Token::CellName("C1".to_string()),
+                Token::NotEquals,
+                Token::CellName("D1".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_logical_with_arithmetic() {
+        let s = "A1 + B1 > C1 * D1";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::CellName("A1".to_string()),
+                Token::Plus,
+                Token::CellName("B1".to_string()),
+                Token::GreaterThan,
+                Token::CellName("C1".to_string()),
+                Token::Multiply,
+                Token::CellName("D1".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_logical_with_function() {
+        let s = "sum(A1, B1) >= C1";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::FunctionName("sum".to_string()),
+                Token::LParen,
+                Token::CellName("A1".to_string()),
+                Token::Comma,
+                Token::CellName("B1".to_string()),
+                Token::RParen,
+                Token::GreaterEquals,
+                Token::CellName("C1".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_not_operator() {
+        let s = "!A1";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(tokens, vec![Token::Not, Token::CellName("A1".to_string()),]);
+    }
+
+    #[test]
+    fn test_complex_nested_expression() {
+        let s = "(A1 > B1 && C1 < D1) || E1 == F1";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::LParen,
+                Token::CellName("A1".to_string()),
+                Token::GreaterThan,
+                Token::CellName("B1".to_string()),
+                Token::And,
+                Token::CellName("C1".to_string()),
+                Token::LessThan,
+                Token::CellName("D1".to_string()),
+                Token::RParen,
+                Token::Or,
+                Token::CellName("E1".to_string()),
+                Token::Equals,
+                Token::CellName("F1".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_invalid_operators() {
+        // Single = is invalid
+        let s = "A1 = B1";
+        assert!(ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .is_err());
+
+        // Single & is invalid
+        let s = "A1 & B1";
+        assert!(ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .is_err());
+
+        // Single | is invalid
+        let s = "A1 | B1";
+        assert!(ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .is_err());
+    }
+
+    #[test]
+    fn test_bool() {
+        let s = "TRUE != FALSE || FALSE != TRUE";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Bool(true),
+                Token::NotEquals,
+                Token::Bool(false),
+                Token::Or,
+                Token::Bool(false),
+                Token::NotEquals,
+                Token::Bool(true),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_simple_boolean() {
+        let s = "TRUE";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(tokens, vec![Token::Bool(true)]);
+
+        let s = "FALSE";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(tokens, vec![Token::Bool(false)]);
+    }
+
+    #[test]
+    fn test_boolean_comparison() {
+        let s = "A1 == TRUE";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::CellName("A1".to_string()),
+                Token::Equals,
+                Token::Bool(true),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_boolean_logical_operators() {
+        let s = "TRUE && FALSE || TRUE";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Bool(true),
+                Token::And,
+                Token::Bool(false),
+                Token::Or,
+                Token::Bool(true),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_not_boolean() {
+        let s = "!TRUE";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(tokens, vec![Token::Not, Token::Bool(true),]);
+    }
+
+    #[test]
+    fn test_boolean_in_function() {
+        let s = "if(A1 > 10, TRUE, FALSE)";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::FunctionName("if".to_string()),
+                Token::LParen,
+                Token::CellName("A1".to_string()),
+                Token::GreaterThan,
+                Token::Number(10.0),
+                Token::Comma,
+                Token::Bool(true),
+                Token::Comma,
+                Token::Bool(false),
+                Token::RParen,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_complex_boolean_expression() {
+        let s = "(A1 > B1 && TRUE) || (C1 == FALSE && !D1)";
+        let tokens = ExpressionTokenizer::new(s.chars().collect())
+            .tokenize_expression()
+            .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::LParen,
+                Token::CellName("A1".to_string()),
+                Token::GreaterThan,
+                Token::CellName("B1".to_string()),
+                Token::And,
+                Token::Bool(true),
+                Token::RParen,
+                Token::Or,
+                Token::LParen,
+                Token::CellName("C1".to_string()),
+                Token::Equals,
+                Token::Bool(false),
+                Token::And,
+                Token::Not,
+                Token::CellName("D1".to_string()),
+                Token::RParen,
+            ]
+        );
+    }
+
+   
 }

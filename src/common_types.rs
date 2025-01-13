@@ -12,14 +12,33 @@ pub enum Token {
     RParen,
     Colon,
     Comma,
-    FunctionName(String)
+    FunctionName(String),
+    Bool(bool),
+
+    // logical operators
+    Equals,        // ==
+    NotEquals,     // !=
+    GreaterThan,   // >
+    LessThan,      // <
+    GreaterEquals, // >=
+    LessEquals,    // <=
+    And,           // &&
+    Or,            // ||
+    Not,           // !
 }
 
 impl Token {
-    #[must_use] pub fn get_precedence(&self) -> usize {
+    #[must_use]
+    pub fn get_precedence(&self) -> usize {
         match &self {
-            Token::Plus | Token::Minus => 1,
-            Token::Division | Token::Multiply => 2,
+            Token::Or => 0,
+            Token::And => 1,
+            Token::Equals | Token::NotEquals | 
+            Token::GreaterThan | Token::LessThan |
+            Token::GreaterEquals | Token::LessEquals => 2,
+            Token::Plus | Token::Minus => 3,
+            Token::Division | Token::Multiply => 4,
+            Token::Not => 5,
             _ => 0,
         }
     }
@@ -34,14 +53,18 @@ pub enum AST {
         left: Box<AST>,
         right: Box<AST>,
     },
+    UnaryOp {
+        op: Token,
+        expr: Box<AST>,
+    },
     Range {
         from: String,
         to: String,
     },
     FunctionCall {
         name: String,
-        arguments: Vec<AST>, 
-    }
+        arguments: Vec<AST>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -60,6 +83,7 @@ pub enum ParsedCell {
 pub enum Value {
     Text(String),
     Number(f64),
+    Bool(bool),
 }
 
 impl Display for Value {
@@ -67,12 +91,14 @@ impl Display for Value {
         match self {
             Value::Text(s) => write!(f, "{s}"),
             Value::Number(num) => write!(f, "{num}"),
+            Value::Bool(bool) => write!(f, "{bool}"),
         }
     }
 }
 
 impl Value {
-    #[must_use] pub fn add(&self, other: Value) -> Option<Value> {
+    #[must_use]
+    pub fn add(&self, other: Value) -> Option<Value> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Some(Value::Number(a + b)),
             (Value::Text(a), Value::Text(b)) => Some(Value::Text(a.clone() + &b)),
@@ -80,26 +106,70 @@ impl Value {
         }
     }
 
-    #[must_use] pub fn sub(&self, other: Value) -> Option<Value> {
+    #[must_use]
+    pub fn sub(&self, other: Value) -> Option<Value> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Some(Value::Number(a - b)),
             _ => None,
         }
     }
 
-    #[must_use] pub fn div(&self, other: Value) -> Option<Value> {
+    #[must_use]
+    pub fn div(&self, other: Value) -> Option<Value> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Some(Value::Number(a / b)),
             _ => None,
         }
     }
 
-    #[must_use] pub fn mult(&self, other: Value) -> Option<Value> {
+    #[must_use]
+    pub fn mult(&self, other: Value) -> Option<Value> {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => Some(Value::Number(a * b)),
             _ => None,
         }
     }
+
+    pub fn and(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Bool(a), Value::Bool(b)) => Some(Value::Bool(*a && b)),
+            _ => None,
+        }
+    }
+    pub fn or(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Bool(a), Value::Bool(b)) => Some(Value::Bool(*a || b)),
+            _ => None,
+        }
+    }
+
+    pub fn greater_than(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Number(a), Value::Number(b)) => Some(Value::Bool(a > &b)),
+            _ => None,
+        }
+    }
+    pub fn less_than(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Number(a), Value::Number(b)) => Some(Value::Bool(a < &b)),
+            _ => None,
+        }
+    }
+
+    pub fn greater_equals(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Number(a), Value::Number(b)) => Some(Value::Bool(a >= &b)),
+            _ => None,
+        }
+    }
+
+    pub fn less_equals(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Number(a), Value::Number(b)) => Some(Value::Bool(a <= &b)),
+            _ => None,
+        }
+    }
+
 }
 
 #[derive(Debug, Clone)]
@@ -128,7 +198,7 @@ impl Display for ComputeError {
 
 #[derive(Debug, Clone)]
 pub struct Cell {
-    pub needs_compute : bool,
+    pub needs_compute: bool,
     pub raw_representation: String,
     pub parsed_representation: Option<Result<ParsedCell, ParseError>>,
     pub computed_value: Option<Result<Value, ComputeError>>,

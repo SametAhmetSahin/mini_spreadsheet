@@ -47,8 +47,16 @@ where
             }
             self.tokens.next(); // Consume the operator
 
-            let right = self.parse_expression(precedence + 1)?;
+            // Handle unary NOT operator specially
+            if op == Token::Not {
+                left = AST::UnaryOp {
+                    op,
+                    expr: Box::new(left),
+                };
+                continue;
+            }
 
+            let right = self.parse_expression(precedence + 1)?;
             left = AST::BinaryOp {
                 op,
                 left: Box::new(left),
@@ -92,15 +100,35 @@ where
                     _ => Err(ASTCreateError::MismatchedParentheses),
                 }
             }
+            Some(Token::Bool(b)) => Ok(AST::Value(Value::Bool(b))),
+            Some(Token::Not) => {
+                let expr = self.parse_expression(Token::Not.get_precedence())?;
+                Ok(AST::UnaryOp {
+                    op: Token::Not,
+                    expr: Box::new(expr),
+                })
+            }
             _ => Err(ASTCreateError::UnexpectedToken),
         }
     }
 
     fn peek_operator(&mut self) -> Option<Token> {
         match self.tokens.peek() {
-            Some(Token::Plus | Token::Minus | Token::Multiply | Token::Division) => {
-                self.tokens.peek().cloned()
-            }
+            Some(
+                Token::Plus
+                | Token::Minus
+                | Token::Multiply
+                | Token::Division
+                | Token::Equals
+                | Token::NotEquals
+                | Token::GreaterThan
+                | Token::LessThan
+                | Token::GreaterEquals
+                | Token::LessEquals
+                | Token::And
+                | Token::Or
+                | Token::Not,
+            ) => self.tokens.peek().cloned(),
             _ => None,
         }
     }
@@ -479,6 +507,224 @@ mod tests {
                     to: "A10".to_string(),
                 }),
                 right: Box::new(AST::Value(Value::Number(5.0))),
+            }
+        );
+    }
+
+    #[test]
+    fn test_boolean_literals() {
+        let tokens = vec![Token::Bool(true)];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(ast, AST::Value(Value::Bool(true)));
+
+        let tokens = vec![Token::Bool(false)];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(ast, AST::Value(Value::Bool(false)));
+    }
+
+    // Logical Operator Tests
+    #[test]
+    fn test_simple_comparison() {
+        let tokens = vec![
+            Token::CellName("A1".to_string()),
+            Token::Equals,
+            Token::Bool(true),
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(
+            ast,
+            AST::BinaryOp {
+                op: Token::Equals,
+                left: Box::new(AST::CellName("A1".to_string())),
+                right: Box::new(AST::Value(Value::Bool(true))),
+            }
+        );
+    }
+
+    #[test]
+    fn test_not_operator() {
+        let tokens = vec![Token::Not, Token::Bool(true)];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(
+            ast,
+            AST::UnaryOp {
+                op: Token::Not,
+                expr: Box::new(AST::Value(Value::Bool(true))),
+            }
+        );
+    }
+
+    #[test]
+    fn test_complex_logical_expression() {
+        let tokens = vec![
+            Token::CellName("A1".to_string()),
+            Token::GreaterThan,
+            Token::Number(10.0),
+            Token::And,
+            Token::CellName("B1".to_string()),
+            Token::LessThan,
+            Token::Number(20.0),
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(
+            ast,
+            AST::BinaryOp {
+                op: Token::And,
+                left: Box::new(AST::BinaryOp {
+                    op: Token::GreaterThan,
+                    left: Box::new(AST::CellName("A1".to_string())),
+                    right: Box::new(AST::Value(Value::Number(10.0))),
+                }),
+                right: Box::new(AST::BinaryOp {
+                    op: Token::LessThan,
+                    left: Box::new(AST::CellName("B1".to_string())),
+                    right: Box::new(AST::Value(Value::Number(20.0))),
+                }),
+            }
+        );
+    }
+
+    // Operator Precedence Tests
+    #[test]
+    fn test_logical_operator_precedence() {
+        let tokens = vec![
+            Token::Not,
+            Token::CellName("A1".to_string()),
+            Token::And,
+            Token::Bool(true),
+            Token::Or,
+            Token::Bool(false),
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(
+            ast,
+            AST::BinaryOp {
+                op: Token::Or,
+                left: Box::new(AST::BinaryOp {
+                    op: Token::And,
+                    left: Box::new(AST::UnaryOp {
+                        op: Token::Not,
+                        expr: Box::new(AST::CellName("A1".to_string())),
+                    }),
+                    right: Box::new(AST::Value(Value::Bool(true))),
+                }),
+                right: Box::new(AST::Value(Value::Bool(false))),
+            }
+        );
+    }
+
+    // Function Tests with Logical Expressions
+    #[test]
+    fn test_if_function_with_logical_condition() {
+        let tokens = vec![
+            Token::FunctionName("if".to_string()),
+            Token::LParen,
+            Token::CellName("A1".to_string()),
+            Token::GreaterThan,
+            Token::Number(10.0),
+            Token::Comma,
+            Token::Bool(true),
+            Token::Comma,
+            Token::Bool(false),
+            Token::RParen,
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(
+            ast,
+            AST::FunctionCall {
+                name: "if".to_string(),
+                arguments: vec![
+                    AST::BinaryOp {
+                        op: Token::GreaterThan,
+                        left: Box::new(AST::CellName("A1".to_string())),
+                        right: Box::new(AST::Value(Value::Number(10.0))),
+                    },
+                    AST::Value(Value::Bool(true)),
+                    AST::Value(Value::Bool(false)),
+                ],
+            }
+        );
+    }
+
+    #[test]
+    fn test_nested_logical_expressions() {
+        let tokens = vec![
+            Token::LParen,
+            Token::Not,
+            Token::LParen,
+            Token::CellName("A1".to_string()),
+            Token::Equals,
+            Token::Bool(true),
+            Token::RParen,
+            Token::And,
+            Token::CellName("B1".to_string()),
+            Token::RParen,
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(
+            ast,
+            AST::BinaryOp {
+                op: Token::And,
+                left: Box::new(AST::UnaryOp {
+                    op: Token::Not,
+                    expr: Box::new(AST::BinaryOp {
+                        op: Token::Equals,
+                        left: Box::new(AST::CellName("A1".to_string())),
+                        right: Box::new(AST::Value(Value::Bool(true))),
+                    }),
+                }),
+                right: Box::new(AST::CellName("B1".to_string())),
+            }
+        );
+    }
+
+    // Error Cases
+    #[test]
+    fn test_invalid_not_operator() {
+        let tokens = vec![Token::Not];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        assert!(matches!(parser.parse(), Err(ASTCreateError::UnexpectedToken)));
+    }
+
+    #[test]
+    fn test_invalid_comparison() {
+        let tokens = vec![
+            Token::CellName("A1".to_string()),
+            Token::GreaterThan,
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        assert!(matches!(parser.parse(), Err(ASTCreateError::UnexpectedToken)));
+    }
+
+    #[test]
+    fn test_mixed_arithmetic_logical() {
+        let tokens = vec![
+            Token::CellName("A1".to_string()),
+            Token::Plus,
+            Token::Number(5.0),
+            Token::GreaterThan,
+            Token::Number(10.0),
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let ast = parser.parse().unwrap();
+        assert_eq!(
+            ast,
+            AST::BinaryOp {
+                op: Token::GreaterThan,
+                left: Box::new(AST::BinaryOp {
+                    op: Token::Plus,
+                    left: Box::new(AST::CellName("A1".to_string())),
+                    right: Box::new(AST::Value(Value::Number(5.0))),
+                }),
+                right: Box::new(AST::Value(Value::Number(10.0))),
             }
         );
     }

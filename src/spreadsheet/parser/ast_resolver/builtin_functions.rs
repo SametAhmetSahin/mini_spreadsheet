@@ -97,6 +97,7 @@ pub fn length(args: Vec<Value>) -> Result<Value, ComputeError> {
         match &args[0] {
             Value::Text(t) => Ok(Value::Number(t.len() as f64)),
             Value::Number(_) => Err(ComputeError::TypeError),
+            Value::Bool(_) => Err(ComputeError::TypeError),
         }
     }
 }
