@@ -1,16 +1,15 @@
-use std::path::Path;
 pub mod common_types;
+use gui::GUI;
+use macroquad::prelude::*;
 use spreadsheet::SpreadSheet;
 
 mod gui;
 mod renderer;
 mod spreadsheet;
 
-fn main() -> iced::Result {
+#[macroquad::main("MyGame")]
+async fn main() {
     let spread_sheet = SpreadSheet::default();
-    // let input = Path::new("csv").join("nested.csv");
-    // let mut spread_sheet = SpreadSheet::from_file_path(input);
-    // spread_sheet.compute_all();
-
-    gui::start(spread_sheet)
+    let mut gui = GUI::new();
+    gui.start().await;
 }
