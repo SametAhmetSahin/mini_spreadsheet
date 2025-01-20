@@ -1,4 +1,4 @@
-use crate::common_types::{ComputeError, Value, AST};
+use crate::common_types::{ComputeError, Value};
 
 pub fn get_func(name: &str) -> Option<fn(Vec<Value>) -> Result<Value, ComputeError>> {
     match name {
@@ -83,7 +83,7 @@ pub fn average(args: Vec<Value>) -> Result<Value, ComputeError> {
 pub fn count(args: Vec<Value>) -> Result<Value, ComputeError> {
     let mut count = 0.0;
     for arg in args {
-        if let Value::Number(num) = arg {
+        if let Value::Number(_num) = arg {
             count += 1.0;
         } else {
             return Err(ComputeError::TypeError);
@@ -129,7 +129,7 @@ pub fn round(args: Vec<Value>) -> Result<Value, ComputeError> {
         Err(ComputeError::TypeError)
     } else {
         match args[0] {
-            Value::Bool(b) => Err(ComputeError::TypeError),
+            Value::Bool(_) => Err(ComputeError::TypeError),
             Value::Text(_) => Err(ComputeError::TypeError),
             Value::Number(num) => Ok(Value::Number(num.round())),
         }

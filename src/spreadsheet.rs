@@ -81,6 +81,8 @@ impl SpreadSheet {
             }
         }
 
+        spreadsheet.compute_all();
+
         spreadsheet
     }
 
@@ -331,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn test_function_call(){
+    fn test_function_call() {
         let mut spreadsheet = SpreadSheet::default();
         let a1 = Index { x: 0, y: 0 };
         let b1 = Index { x: 1, y: 0 };
@@ -341,24 +343,21 @@ mod tests {
         spreadsheet.add_cell_and_compute(b1, "23".to_string());
         spreadsheet.add_cell_and_compute(c1, "=sum(A1:B1)".to_string());
         let computed = spreadsheet.get_computed(c1);
-        assert!(matches!(
-            computed,
-            Some(Ok(Value::Number(38.0)))
-        ));
+        assert!(matches!(computed, Some(Ok(Value::Number(38.0)))));
     }
 
     #[test]
-    fn test_string(){
+    fn test_string() {
         let mut spreadsheet = SpreadSheet::default();
         let a1 = Index { x: 0, y: 0 };
-        
 
         spreadsheet.add_cell_and_compute(a1, "=\"hello\"".to_string());
         let computed = spreadsheet.get_computed(a1);
         let expected = String::from("hello");
-        assert!(matches!(
-            computed,
-            Some(Ok(Value::Text(expected)))
-        ));
+        let result = computed.unwrap().unwrap();
+        match result {
+            Value::Text(t) => assert_eq!(t, expected),
+            _ => panic!("Expected text"),
+        }
     }
 }

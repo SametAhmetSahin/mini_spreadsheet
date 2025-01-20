@@ -1,6 +1,7 @@
 pub mod common_types;
+use std::path::PathBuf;
+
 use gui::GUI;
-use macroquad::prelude::*;
 use spreadsheet::SpreadSheet;
 
 mod gui;
@@ -9,7 +10,7 @@ mod spreadsheet;
 
 #[macroquad::main("MyGame")]
 async fn main() {
-    let spread_sheet = SpreadSheet::default();
-    let mut gui = GUI::new().await;
+    let spread_sheet = SpreadSheet::from_file_path(PathBuf::from("./csv/sum.csv"));
+    let mut gui = GUI::new(spread_sheet).await;
     gui.start().await;
 }

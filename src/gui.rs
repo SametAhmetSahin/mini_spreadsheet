@@ -1,7 +1,6 @@
-use camera::mouse;
 use macroquad::prelude::*;
 
-use crate::common_types::Index;
+use crate::{common_types::Index, spreadsheet::SpreadSheet};
 
 pub struct GUI {
     selected_cell: Option<Index>,
@@ -9,10 +8,11 @@ pub struct GUI {
     is_editor_focused: bool,
     last_click: Option<(f32, f32)>,
     font: Font,
+    spread_sheet: SpreadSheet,
 }
 
 impl GUI {
-    pub async fn new() -> Self {
+    pub async fn new(spread_sheet: SpreadSheet) -> Self {
         let font = load_ttf_font("fonts/jetbrains-mono-font/JetbrainsMonoRegular-RpvmM.ttf")
             .await
             .unwrap();
@@ -22,6 +22,7 @@ impl GUI {
             is_editor_focused: false,
             font,
             editor_content: String::new(),
+            spread_sheet,
         }
     }
 
@@ -118,10 +119,11 @@ impl GUI {
                 ((x - start_x) / cell_width) as i32,
                 ((y - start_y) / cell_height) as i32,
             );
-            self.selected_cell = Some(Index {
+            self.change_selected_cell(Index {
                 x: col.try_into().expect("Got negative idx from click"),
                 y: row.try_into().expect("Got negative idx from click"),
             });
+            self.is_editor_focused = true;
         }
 
         // Draw background
@@ -146,12 +148,34 @@ impl GUI {
         let (start_x, start_y) = start;
         let (width, height) = dimensions;
 
-        if Some(index) == self.selected_cell {
+        let center_x = start_x + width / 2.0;
+        let center_y = start_y + height / 2.0;
+        let font_size = 12;
+
+        let text = if Some(index) == self.selected_cell {
             // Draw cell outline with the basic border color
             draw_rectangle_lines(start_x, start_y, width, height, 3.0, ORANGE);
+            &self.editor_content
         } else {
             // Draw cell outline with the basic border color
             draw_rectangle_lines(start_x, start_y, width, height, 1.0, BLACK);
+            &self.spread_sheet.get_text(index)
+        };
+
+        if !text.is_empty() {
+            draw_text_ex(
+                text,
+                center_x,
+                center_y,
+                TextParams {
+                    font: Some(&self.font),
+                    font_size: font_size,
+                    font_scale: 1.0,
+                    font_scale_aspect: 1.0,
+                    rotation: 0.0,
+                    color: BLACK,
+                },
+            );
         }
     }
 
@@ -178,7 +202,32 @@ impl GUI {
     }
 
     fn commit_editor(&mut self) {
-        todo!()
+        if let Some(idx) = self.selected_cell {
+            let previous_content = self.spread_sheet.get_raw(&idx).unwrap_or_default();
+            let new_content = std::mem::take(&mut self.editor_content).trim().to_string(); // Takes the value while leaving an empty string
+
+            match (previous_content, new_content.as_str()) {
+                (prev, new) if prev == new => (),
+                ("", "") => (),
+                ("", _added_content) => self.spread_sheet.add_cell_and_compute(idx, new_content),
+                (_deleted_content, "") => self.spread_sheet.remove_cell(idx),
+                (_mutated_from, _mutated_to) => self.spread_sheet.mutate_cell(idx, new_content),
+            }
+        }
+    }
+
+    fn change_selected_cell(&mut self, idx: Index) {
+        if self.selected_cell == Some(idx) {
+            return;
+        }
+
+        self.commit_editor();
+        self.editor_content = self
+            .spread_sheet
+            .get_raw(&idx)
+            .unwrap_or_default()
+            .to_owned();
+        self.selected_cell = Some(idx);
     }
 }
 

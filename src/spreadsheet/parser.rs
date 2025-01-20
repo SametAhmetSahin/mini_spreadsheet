@@ -17,7 +17,7 @@ impl CellParser {
     pub fn parse_cell(cell: &mut Cell) {
         let raw_cell = &cell.raw_representation;
         if raw_cell.is_empty() {
-            unreachable!()
+            panic!("Parsing empty cell")
         }
 
         let parsed_cell = match raw_cell.chars().nth(0).expect("Should never fail") {
