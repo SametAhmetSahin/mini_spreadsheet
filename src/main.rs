@@ -10,6 +10,6 @@ mod spreadsheet;
 #[macroquad::main("MyGame")]
 async fn main() {
     let spread_sheet = SpreadSheet::default();
-    let mut gui = GUI::new();
+    let mut gui = GUI::new().await;
     gui.start().await;
 }
