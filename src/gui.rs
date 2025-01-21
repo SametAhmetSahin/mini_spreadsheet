@@ -1,12 +1,35 @@
 use macroquad::prelude::*;
+use macroquad::ui::{hash, root_ui};
 
 use crate::{common_types::Index, spreadsheet::SpreadSheet};
+
+// Window configuration
+const INITIAL_WINDOW_WIDTH: f32 = 1200.0;
+const INITIAL_WINDOW_HEIGHT: f32 = 900.0;
+
+// Grid configuration
+const GRID_ROWS: usize = 10;
+const GRID_COLS: usize = 10;
+
+// Editor configuration
+const EDITOR_HEIGHT: f32 = 80.0;
+const EDITOR_TOP_MARGIN: f32 = 0.0;
+
+// Cell styling
+const CELL_FONT_SIZE: u16 = 12;
+const SELECTED_CELL_BORDER_WIDTH: f32 = 3.0;
+const NORMAL_CELL_BORDER_WIDTH: f32 = 1.0;
+
+// Colors
+const BACKGROUND_COLOR: Color = BLACK;
+const GRID_BACKGROUND_COLOR: Color = WHITE;
+const SELECTED_CELL_BORDER_COLOR: Color = ORANGE;
+const NORMAL_CELL_BORDER_COLOR: Color = BLACK;
+const CELL_TEXT_COLOR: Color = BLACK;
 
 pub struct GUI {
     selected_cell: Option<Index>,
     editor_content: String,
-    is_editor_focused: bool,
-    last_click: Option<(f32, f32)>,
     font: Font,
     spread_sheet: SpreadSheet,
 }
@@ -17,9 +40,7 @@ impl GUI {
             .await
             .unwrap();
         Self {
-            last_click: None,
             selected_cell: None,
-            is_editor_focused: false,
             font,
             editor_content: String::new(),
             spread_sheet,
@@ -27,75 +48,38 @@ impl GUI {
     }
 
     pub async fn start(&mut self) {
-        request_new_screen_size(1200.0, 900.0);
+        request_new_screen_size(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT);
 
         loop {
-            // events
-            if is_mouse_button_pressed(MouseButton::Left) {
-                let pos = mouse_position();
-                self.last_click = Some(pos);
-            }
-            while let Some(c) = get_char_pressed() {
-                if self.is_editor_focused {
-                    if c == '\u{8}' {
-                        // '\u{8}' represents the Backspace key
-                        self.editor_content.pop();
-                    } else if c == '\r' {
-                        self.commit_editor();
-                        self.is_editor_focused = false;
-                    } else {
-                        self.editor_content.push(c);
-                    }
-                }
-            }
+            clear_background(BACKGROUND_COLOR);
 
-            // draw
-            clear_background(RED);
-            self.draw_horizontal_layout((0.0, 0.0), (screen_width(), screen_height()));
-
-            // Clear this frame
-            self.last_click = None; // If this was somehow not consumed it should not persist in the next frame
+            // Handle egui input
+            self.draw_editor();
+            self.draw_cells(
+                (0.0, EDITOR_HEIGHT + EDITOR_TOP_MARGIN),
+                (screen_width(), screen_height()),
+            );
 
             next_frame().await
         }
     }
 
-    fn draw_editor(&mut self, start: (f32, f32), end: (f32, f32)) {
-        let (start_x, start_y) = start;
-        let (end_x, end_y) = end;
-        let padding = 10.0;
+    fn draw_editor(&mut self) {
+        // Create an egui text input widget
 
-        if let Some(_) = self
-            .last_click
-            .take_if(|click| is_point_in_rect(*click, start, end))
-        {
-            self.is_editor_focused = true
-        }
+        root_ui().window(
+            hash!(),
+            vec2(0.0, EDITOR_TOP_MARGIN),
+            vec2(screen_width(), EDITOR_HEIGHT),
+            |ui| {
+                ui.input_text(hash!(), "", &mut self.editor_content);
 
-        draw_rectangle(start_x, start_y, end_x - start_x, end_y - start_y, GREEN);
-        draw_rectangle_lines(
-            start_x,
-            start_y,
-            end_x - start_x,
-            end_y - start_y,
-            2.0,
-            DARKGRAY,
-        );
-
-        let text_start_x = start_x + padding;
-        let text_start_y = (start_y + end_y) / 2.0;
-        let font_size = 16;
-        draw_text_ex(
-            &self.editor_content,
-            text_start_x,
-            text_start_y,
-            TextParams {
-                font: Some(&self.font),
-                font_size: font_size,
-                font_scale: 1.0,
-                font_scale_aspect: 1.0,
-                rotation: 0.0,
-                color: BLACK,
+                // Add a submit button
+                if ui.button(None, "Submit") || is_key_pressed(KeyCode::Enter) {
+                    self.commit_editor();
+                    self.selected_cell = None;
+                    self.editor_content.clear();
+                }
             },
         );
     }
@@ -103,35 +87,35 @@ impl GUI {
     fn draw_cells(&mut self, start: (f32, f32), end: (f32, f32)) {
         let (start_x, start_y) = start;
         let (end_x, end_y) = end;
-        let num_cells_vertical = 10;
-        let num_cells_horizontal = 10;
 
-        let cell_height = (end_y - start_y) / num_cells_vertical as f32;
-        let cell_width = (end_x - start_x) / num_cells_horizontal as f32;
+        let cell_height = (end_y - start_y) / GRID_ROWS as f32;
+        let cell_width = (end_x - start_x) / GRID_COLS as f32;
 
         // Handle if mouse clicked
-        if let Some(clicked) = self
-            .last_click
-            .take_if(|click| is_point_in_rect(*click, start, end))
-        {
-            let (x, y) = clicked;
-            let (col, row) = (
-                ((x - start_x) / cell_width) as i32,
-                ((y - start_y) / cell_height) as i32,
-            );
-            self.change_selected_cell(Index {
-                x: col.try_into().expect("Got negative idx from click"),
-                y: row.try_into().expect("Got negative idx from click"),
-            });
-            self.is_editor_focused = true;
+        if is_mouse_button_pressed(MouseButton::Left) {
+            let (x, y) = mouse_position();
+            if is_point_in_rect((x, y), start, end) {
+                let col = ((x - start_x) / cell_width) as i32;
+                let row = ((y - start_y) / cell_height) as i32;
+                self.change_selected_cell(Index {
+                    x: col.try_into().expect("Got negative idx from click"),
+                    y: row.try_into().expect("Got negative idx from click"),
+                });
+            }
         }
 
         // Draw background
-        draw_rectangle(start_x, start_y, end_x - start_x, end_y - start_y, WHITE);
+        draw_rectangle(
+            start_x,
+            start_y,
+            end_x - start_x,
+            end_y - start_y,
+            GRID_BACKGROUND_COLOR,
+        );
 
         // Draw all cells in the grid
-        for row in 0..num_cells_vertical {
-            for col in 0..num_cells_horizontal {
+        for row in 0..GRID_ROWS {
+            for col in 0..GRID_COLS {
                 let cell_start_x = start_x + col as f32 * cell_width;
                 let cell_start_y = start_y + row as f32 * cell_height;
 
@@ -150,15 +134,25 @@ impl GUI {
 
         let center_x = start_x + width / 2.0;
         let center_y = start_y + height / 2.0;
-        let font_size = 12;
+
+        let (border_width, border_color) = if Some(index) == self.selected_cell {
+            (SELECTED_CELL_BORDER_WIDTH, SELECTED_CELL_BORDER_COLOR)
+        } else {
+            (NORMAL_CELL_BORDER_WIDTH, NORMAL_CELL_BORDER_COLOR)
+        };
+
+        draw_rectangle_lines(
+            start_x,
+            start_y,
+            width,
+            height,
+            border_width,
+            border_color,
+        );
 
         let text = if Some(index) == self.selected_cell {
-            // Draw cell outline with the basic border color
-            draw_rectangle_lines(start_x, start_y, width, height, 3.0, ORANGE);
             &self.editor_content
         } else {
-            // Draw cell outline with the basic border color
-            draw_rectangle_lines(start_x, start_y, width, height, 1.0, BLACK);
             &self.spread_sheet.get_text(index)
         };
 
@@ -169,42 +163,20 @@ impl GUI {
                 center_y,
                 TextParams {
                     font: Some(&self.font),
-                    font_size: font_size,
+                    font_size: CELL_FONT_SIZE,
                     font_scale: 1.0,
                     font_scale_aspect: 1.0,
                     rotation: 0.0,
-                    color: BLACK,
+                    color: CELL_TEXT_COLOR,
                 },
             );
-        }
-    }
-
-    fn draw_horizontal_layout(&mut self, start: (f32, f32), end: (f32, f32)) {
-        let (start_x, start_y) = start;
-        let (end_x, end_y) = end;
-
-        // Define the components and their relative sizes
-        let draws = vec![
-            (GUI::draw_editor as fn(&mut GUI, (f32, f32), (f32, f32)), 2),
-            (GUI::draw_cells as fn(&mut GUI, (f32, f32), (f32, f32)), 10),
-        ];
-
-        // Distribute the total area according to the second element of the tuple
-        let total_weight: u16 = draws.iter().map(|(_, weight)| weight).sum();
-
-        // Draw each component
-        let mut current_y = start_y;
-        for (draw_fn, weight) in draws {
-            let height = (end_y - start_y) * (weight as f32 / total_weight as f32);
-            draw_fn(self, (start_x, current_y), (end_x, current_y + height));
-            current_y += height;
         }
     }
 
     fn commit_editor(&mut self) {
         if let Some(idx) = self.selected_cell {
             let previous_content = self.spread_sheet.get_raw(&idx).unwrap_or_default();
-            let new_content = std::mem::take(&mut self.editor_content).trim().to_string(); // Takes the value while leaving an empty string
+            let new_content = self.editor_content.trim().to_string();
 
             match (previous_content, new_content.as_str()) {
                 (prev, new) if prev == new => (),
