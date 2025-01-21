@@ -1,6 +1,7 @@
 use macroquad::prelude::*;
 use macroquad::ui::{hash, root_ui};
 
+use crate::common_types::{ComputeError, Value};
 use crate::{common_types::Index, spreadsheet::SpreadSheet};
 
 // Window configuration
@@ -8,7 +9,7 @@ const INITIAL_WINDOW_WIDTH: f32 = 1200.0;
 const INITIAL_WINDOW_HEIGHT: f32 = 900.0;
 
 // Grid configuration
-const GRID_ROWS: usize = 10;
+const GRID_ROWS: usize = 20;
 const GRID_COLS: usize = 10;
 
 // Editor configuration
@@ -53,7 +54,6 @@ impl GUI {
         loop {
             clear_background(BACKGROUND_COLOR);
 
-            // Handle egui input
             self.draw_editor();
             self.draw_cells(
                 (0.0, EDITOR_HEIGHT + EDITOR_TOP_MARGIN),
@@ -72,7 +72,6 @@ impl GUI {
             vec2(screen_width(), EDITOR_HEIGHT),
             |ui| {
                 let input_text_id = hash!();
-                // Create the input text field
                 ui.input_text(input_text_id, "", &mut self.editor_content);
 
                 // Focus the editor when a cell is selected
@@ -153,14 +152,19 @@ impl GUI {
         let text = if Some(index) == self.selected_cell {
             &self.editor_content
         } else {
-            &self.spread_sheet.get_text(index)
+            &computed_to_text(self.spread_sheet.get_computed(index))
         };
 
         if !text.is_empty() {
+            let text_dimensions = measure_text(text, Some(&self.font), CELL_FONT_SIZE, 1.0);
+
+            let text_x = center_x - text_dimensions.width / 2.0;
+            let text_y = center_y + text_dimensions.height / 2.0; // Adjust y for baseline alignment
+
             draw_text_ex(
                 text,
-                center_x,
-                center_y,
+                text_x,
+                text_y,
                 TextParams {
                     font: Some(&self.font),
                     font_size: CELL_FONT_SIZE,
@@ -212,4 +216,43 @@ fn is_point_in_rect<T: std::cmp::PartialOrd>(
         && point.0 <= rect_end.0
         && rect_start.1 <= point.1
         && point.1 <= rect_end.1
+}
+
+/*  
+    Format a float into scientific notation such as: 42.0 -> 4.200e+01
+    width controls the amount of left padded spaces
+    precision is the amount of decimals
+    exp_pad controls the amount of left padded 0s
+ */
+fn fmt_f64(num: f64, width: usize, precision: usize, exp_pad: usize) -> String {
+    let mut num = format!("{:.precision$e}", num, precision = precision);
+    // Safe to `unwrap` as `num` is guaranteed to contain `'e'`
+    let exp = num.split_off(num.find('e').expect("safe"));
+
+    let (sign, exp) = if exp.starts_with("e-") {
+        ('-', &exp[2..])
+    } else {
+        ('+', &exp[1..])
+    };
+    num.push_str(&format!("e{}{:0>pad$}", sign, exp, pad = exp_pad));
+
+    format!("{:>width$}", num, width = width)
+}
+
+fn computed_to_text(computed: Option<Result<Value, ComputeError>>) -> String {
+    match computed {
+        Some(value) => match value {
+            Ok(inner) => match inner {
+                Value::Text(s) => s,
+                Value::Number(num) => if num >= 1E15 {
+                    fmt_f64(num, 10, 3, 2)
+                } else {
+                    num.to_string()
+                },
+                Value::Bool(b) => b.to_string(),
+            },
+            Err(err) => err.to_string(),
+        },
+        None => String::new(),
+    }
 }

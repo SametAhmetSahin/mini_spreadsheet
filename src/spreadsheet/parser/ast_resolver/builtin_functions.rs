@@ -12,6 +12,7 @@ pub fn get_func(name: &str) -> Option<fn(Vec<Value>) -> Result<Value, ComputeErr
         "if" => Some(self::if_func),
         "round" => Some(self::round),
         "rand" => Some(self::rand_func),
+        "pow" => Some(self::power),
         _ => None,
     }
 }
@@ -125,7 +126,7 @@ pub fn if_func(mut args: Vec<Value>) -> Result<Value, ComputeError> {
 }
 
 pub fn round(args: Vec<Value>) -> Result<Value, ComputeError> {
-    if args.len() !=1  {
+    if args.len() != 1 {
         Err(ComputeError::TypeError)
     } else {
         match args[0] {
@@ -136,10 +137,23 @@ pub fn round(args: Vec<Value>) -> Result<Value, ComputeError> {
     }
 }
 
-pub fn rand_func(args : Vec<Value>) -> Result<Value, ComputeError> {
-    if args.len() !=0  {
+pub fn rand_func(args: Vec<Value>) -> Result<Value, ComputeError> {
+    if args.len() != 0 {
         Err(ComputeError::TypeError)
     } else {
-       Ok(Value::Number(rand::Rng::gen(&mut rand::thread_rng())))
+        Ok(Value::Number(rand::Rng::gen(&mut rand::thread_rng())))
+    }
+}
+
+pub fn power(mut args: Vec<Value>) -> Result<Value, ComputeError> {
+    if args.len() != 2 {
+        Err(ComputeError::TypeError)
+    } else {
+        let num2 = args.pop().unwrap();
+        let num1 = args.pop().unwrap();
+        match (num1, num2) {
+            (Value::Number(n1), Value::Number(n2)) => Ok(Value::Number(n1.powf(n2))),
+            _ => Err(ComputeError::TypeError),
+        }
     }
 }
