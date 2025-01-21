@@ -65,17 +65,24 @@ impl GUI {
     }
 
     fn draw_editor(&mut self) {
-        // Create an egui text input widget
-
+        let window_id = hash!();
         root_ui().window(
-            hash!(),
+            window_id,
             vec2(0.0, EDITOR_TOP_MARGIN),
             vec2(screen_width(), EDITOR_HEIGHT),
             |ui| {
-                ui.input_text(hash!(), "", &mut self.editor_content);
+                let input_text_id = hash!();
+                // Create the input text field
+                ui.input_text(input_text_id, "", &mut self.editor_content);
 
-                // Add a submit button
-                if ui.button(None, "Submit") || is_key_pressed(KeyCode::Enter) {
+                // Focus the editor when a cell is selected
+                if self.selected_cell.is_some() {
+                    ui.set_input_focus(input_text_id);
+                } else {
+                    ui.set_input_focus(hash!());
+                }
+
+                if is_key_pressed(KeyCode::Enter) {
                     self.commit_editor();
                     self.selected_cell = None;
                     self.editor_content.clear();
@@ -141,14 +148,7 @@ impl GUI {
             (NORMAL_CELL_BORDER_WIDTH, NORMAL_CELL_BORDER_COLOR)
         };
 
-        draw_rectangle_lines(
-            start_x,
-            start_y,
-            width,
-            height,
-            border_width,
-            border_color,
-        );
+        draw_rectangle_lines(start_x, start_y, width, height, border_width, border_color);
 
         let text = if Some(index) == self.selected_cell {
             &self.editor_content
