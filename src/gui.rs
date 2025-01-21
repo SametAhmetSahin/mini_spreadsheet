@@ -262,7 +262,7 @@ impl GUI {
 
         draw_rectangle_lines(start_x, start_y, width, height, 1.0, LABEL_BORDER_COLOR);
         let text = if is_row {
-            idx.to_string()
+            (idx+1).to_string()
         } else {
             column_idx_to_string(idx)
         };
