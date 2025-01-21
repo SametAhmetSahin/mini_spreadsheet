@@ -22,7 +22,7 @@ impl CellParser {
 
         let parsed_cell = match raw_cell.chars().nth(0).expect("Should never fail") {
             '=' => Self::parse_expression(raw_cell),
-            num if num.is_ascii_digit() => match raw_cell.parse() {
+            d if d.is_ascii_digit() || d == '-' || d == '+' => match raw_cell.parse() {
                 Ok(number) => Ok(ParsedCell::Value(Value::Number(number))),
                 Err(e) => Err(ParseError(format!(
                     "Had error: -{e}- parsing number {raw_cell}"
