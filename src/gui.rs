@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 use macroquad::ui::widgets::InputText;
-use macroquad::ui::{hash, root_ui};
+use macroquad::ui::{hash, root_ui, Skin};
 
 use crate::common_types::{ComputeError, Value};
 use crate::{common_types::Index, spreadsheet::SpreadSheet};
@@ -44,24 +44,53 @@ pub struct GUI {
     regular_font: Font,
     bold_font: Font,
     spread_sheet: SpreadSheet,
+    editor_skin: Skin,
 }
 
 impl GUI {
     pub async fn new(spread_sheet: SpreadSheet) -> Self {
-        let font = load_ttf_font("fonts/jetbrains-mono-font/JetbrainsMonoRegular-RpvmM.ttf")
+        let regular_font =
+            load_ttf_font("fonts/jetbrains-mono-font/JetbrainsMonoRegular-RpvmM.ttf")
+                .await
+                .unwrap();
+
+        let bold_font = load_ttf_font("fonts/jetbrains-mono-font/JetbrainsMonoBold-51Xez.ttf")
             .await
             .unwrap();
 
-        let bold = load_ttf_font("fonts/jetbrains-mono-font/JetbrainsMonoBold-51Xez.ttf")
-            .await
-            .unwrap();
+        // Create a minimal style for the editor
+        let editor_skin = {
+            let editbox_style = root_ui()
+                .style_builder()
+                .background_margin(RectOffset::new(4., 4., 4., 4.))
+                .with_font(&regular_font)
+                .unwrap()
+                .text_color(Color::from_rgba(60, 60, 60, 255)) // Dark gray text
+                .color_selected(Color::from_rgba(200, 200, 255, 255)) // Light blue selection
+                .font_size(16)
+                .build();
+
+            let window_style = root_ui()
+                .style_builder()
+                .background_margin(RectOffset::new(2.0, 2.0, 2.0, 2.0))
+                .margin(RectOffset::new(0.0, 0.0, 0.0, 0.0))
+                .color(Color::from_rgba(240, 240, 240, 255)) // Light gray background
+                .build();
+
+            Skin {
+                editbox_style,
+                window_style,
+                ..root_ui().default_skin()
+            }
+        };
 
         Self {
             selected_cell: None,
-            regular_font: font,
+            regular_font,
             editor_content: String::new(),
             spread_sheet,
-            bold_font: bold,
+            bold_font,
+            editor_skin,
         }
     }
 
@@ -82,6 +111,9 @@ impl GUI {
     }
 
     fn draw_editor(&mut self) {
+        // Push our custom skin before drawing the editor
+        root_ui().push_skin(&self.editor_skin);
+
         let window_id = hash!();
         root_ui().window(
             window_id,
@@ -92,10 +124,7 @@ impl GUI {
                 InputText::new(input_text_id)
                     .label("")
                     .position(vec2(ROW_LABEL_WIDTH, EDITOR_TOP_MARGIN + EDITOR_PADDING))
-                    .size(vec2(
-                        screen_width() - ROW_LABEL_WIDTH * 2.0,
-                        EDITOR_HEIGHT,
-                    ))
+                    .size(vec2(screen_width() - ROW_LABEL_WIDTH * 2.0, EDITOR_HEIGHT))
                     .ui(ui, &mut self.editor_content);
 
                 // Focus the editor when a cell is selected
@@ -112,6 +141,9 @@ impl GUI {
                 }
             },
         );
+
+        // Pop the skin after we're done
+        root_ui().pop_skin();
     }
 
     fn draw_cells(&mut self, start: (f32, f32), end: (f32, f32)) {
