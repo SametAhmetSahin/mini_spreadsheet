@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use macroquad::ui::widgets::InputText;
 use macroquad::ui::{hash, root_ui};
 
 use crate::common_types::{ComputeError, Value};
@@ -13,8 +14,9 @@ const GRID_ROWS: usize = 20;
 const GRID_COLS: usize = 10;
 
 // Editor configuration
-const EDITOR_HEIGHT: f32 = 80.0;
+const EDITOR_HEIGHT: f32 = 40.0;
 const EDITOR_TOP_MARGIN: f32 = 0.0;
+const EDITOR_PADDING: f32 = 20.0;
 
 // Cell styling
 const CELL_FONT_SIZE: u16 = 12;
@@ -84,10 +86,17 @@ impl GUI {
         root_ui().window(
             window_id,
             vec2(0.0, EDITOR_TOP_MARGIN),
-            vec2(screen_width(), EDITOR_HEIGHT),
+            vec2(screen_width(), EDITOR_HEIGHT + EDITOR_PADDING * 2.0),
             |ui| {
                 let input_text_id = hash!();
-                ui.input_text(input_text_id, "", &mut self.editor_content);
+                InputText::new(input_text_id)
+                    .label("")
+                    .position(vec2(ROW_LABEL_WIDTH, EDITOR_TOP_MARGIN + EDITOR_PADDING))
+                    .size(vec2(
+                        screen_width() - ROW_LABEL_WIDTH * 2.0,
+                        EDITOR_HEIGHT,
+                    ))
+                    .ui(ui, &mut self.editor_content);
 
                 // Focus the editor when a cell is selected
                 if self.selected_cell.is_some() {
@@ -262,7 +271,7 @@ impl GUI {
 
         draw_rectangle_lines(start_x, start_y, width, height, 1.0, LABEL_BORDER_COLOR);
         let text = if is_row {
-            (idx+1).to_string()
+            (idx + 1).to_string()
         } else {
             column_idx_to_string(idx)
         };
