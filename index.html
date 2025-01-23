@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1" />
+ <title>My Game</title>
+ <style>
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: lightgray;
+}
+.canvas-container {
+    width: 100%;
+    height: 100%;
+    padding: 40px; /* Added padding around canvas */
+    box-sizing: border-box;
+}
+canvas {
+    width: 100%;
+    height: 100%;
+    background: black;
+}
+ </style>
+</head>
+<body>
+ <div class="canvas-container">
+    <canvas id="glcanvas" tabindex='1'></canvas>
+ </div>
+ <script src="https://not-fl3.github.io/miniquad-samples/mq_js_bundle.js"></script>
+ <script>load("mini_spreadsheet.wasm");</script>
+</body>
+</html>

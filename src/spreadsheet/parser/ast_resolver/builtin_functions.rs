@@ -11,7 +11,6 @@ pub fn get_func(name: &str) -> Option<fn(Vec<Value>) -> Result<Value, ComputeErr
         "length" => Some(self::length),
         "if" => Some(self::if_func),
         "round" => Some(self::round),
-        "rand" => Some(self::rand_func),
         "pow" => Some(self::power),
         _ => None,
     }
@@ -141,13 +140,6 @@ pub fn round(args: Vec<Value>) -> Result<Value, ComputeError> {
     }
 }
 
-pub fn rand_func(args: Vec<Value>) -> Result<Value, ComputeError> {
-    if !args.is_empty() {
-        return Err(ComputeError::InvalidArgument("rand expects no arguments".to_string()));
-    }
-
-    Ok(Value::Number(rand::Rng::gen(&mut rand::thread_rng())))
-}
 
 pub fn power(mut args: Vec<Value>) -> Result<Value, ComputeError> {
     if args.len() != 2 {
