@@ -50,11 +50,11 @@ pub struct GUI {
 
 impl GUI {
     pub async fn new(spread_sheet: SpreadSheet) -> Self {
-        let regular_font = load_ttf_font("fonts/jetbrains-mono-font/JetbrainsMonoMedium-nRvBM.ttf")
+        let regular_font = load_ttf_font("fonts/ttf/Hack-Regular.ttf")
             .await
             .unwrap();
 
-        let bold_font = load_ttf_font("fonts/jetbrains-mono-font/JetbrainsMonoBold-51Xez.ttf")
+        let bold_font = load_ttf_font("fonts/ttf/Hack-Bold.ttf")
             .await
             .unwrap();
 
@@ -70,6 +70,8 @@ impl GUI {
             let window_style = root_ui()
                 .style_builder()
                 .color(Color::from_rgba(240, 240, 240, 255)) // Light gray background
+                .with_font(&regular_font)
+                .unwrap()
                 .build();
 
             Skin {
