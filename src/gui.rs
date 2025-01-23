@@ -1,4 +1,3 @@
-
 use macroquad::prelude::*;
 use macroquad::ui::widgets::InputText;
 use macroquad::ui::{hash, root_ui, Skin};
@@ -386,11 +385,10 @@ impl GUI {
     }
 
     fn draw_dialog(&self, idx: Index, pos: (f32, f32)) {
-        // Only draw dialog if we have a raw cell value
         if let Some(err) = self.spread_sheet.get_error(idx) {
-            // Constants for dialog positioning
             const DIALOG_WIDTH: f32 = 200.0;
             const DIALOG_HEIGHT: f32 = 80.0;
+            const DIALOG_FONT_SIZE: u16 = 14;
 
             let (dialog_x, dialog_y) = pos;
 
@@ -406,27 +404,40 @@ impl GUI {
 
             // Prepare dialog text
             let dialog_text = format!("Error: {}", err_to_info(err));
-            let text_dimensions =
-                measure_text(&dialog_text, Some(&self.regular_font), LABEL_FONT_SIZE, 1.0);
 
-            // Center text in dialog
-            let text_x = dialog_x + (DIALOG_WIDTH - text_dimensions.width) / 2.0;
-            let text_y = dialog_y + DIALOG_HEIGHT / 2.0 + text_dimensions.height / 2.0;
-
-            // Draw dialog text
-            draw_text_ex(
+            let lines = split_into_lines(
                 &dialog_text,
-                text_x,
-                text_y,
-                TextParams {
-                    font: Some(&self.regular_font),
-                    font_size: LABEL_FONT_SIZE,
-                    font_scale: 1.0,
-                    font_scale_aspect: 1.0,
-                    rotation: 0.0,
-                    color: LABEL_TEXT_COLOR,
-                },
+                &self.regular_font,
+                DIALOG_FONT_SIZE,
+                DIALOG_WIDTH - 10.0,
             );
+
+            // Calculate vertical starting position for centering the text block
+            let total_text_height = lines.len() as f32 * (DIALOG_FONT_SIZE as f32 + 4.0); // 4.0 for line spacing
+            let mut text_y = dialog_y + (DIALOG_HEIGHT - total_text_height) / 2.0;
+
+            // Draw each line of text
+            for line in lines {
+                let text_dimensions =
+                    measure_text(&line, Some(&self.bold_font), DIALOG_FONT_SIZE, 1.0);
+                let text_x = dialog_x + (DIALOG_WIDTH - text_dimensions.width) / 2.0;
+
+                draw_text_ex(
+                    &line,
+                    text_x,
+                    text_y,
+                    TextParams {
+                        font: Some(&self.bold_font),
+                        font_size: DIALOG_FONT_SIZE,
+                        font_scale: 1.0,
+                        font_scale_aspect: 1.0,
+                        rotation: 0.0,
+                        color: BLACK,
+                    },
+                );
+
+                text_y += DIALOG_FONT_SIZE as f32 + 4.0; // Move to next line
+            }
         }
     }
 }
@@ -507,4 +518,34 @@ fn err_to_info(err: ComputeError) -> String {
         ComputeError::UnknownFunction(f) => format!("Unknown function '{f}'"),
         ComputeError::InvalidArgument(message) => message,
     }
+}
+
+fn split_into_lines(text: &str, font: &Font, font_size: u16, max_width: f32) -> Vec<String> {
+    let mut lines = Vec::new();
+    let mut current_line = String::new();
+
+    for word in text.split_whitespace() {
+        let candidate = if current_line.is_empty() {
+            word.to_string()
+        } else {
+            format!("{} {}", current_line, word)
+        };
+
+        let text_dimensions = measure_text(&candidate, Some(font), font_size, 1.0);
+
+        if text_dimensions.width <= max_width {
+            current_line = candidate;
+        } else {
+            if !current_line.is_empty() {
+                lines.push(current_line);
+            }
+            current_line = word.to_string();
+        }
+    }
+
+    if !current_line.is_empty() {
+        lines.push(current_line);
+    }
+
+    lines
 }
