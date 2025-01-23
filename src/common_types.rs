@@ -179,20 +179,22 @@ pub struct ParseError(pub String);
 #[derive(Debug, Clone)]
 pub enum ComputeError {
     ParseError(String),
-    TypeError,
+    TypeError(String),
     UnfindableReference(String),
     Cycle,
-    UnknownFunction,
+    UnknownFunction(String),
+    InvalidArgument(String)
 }
 
 impl Display for ComputeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ComputeError::ParseError(_) => write!(f, "!PARSE ERROR!"),
-            ComputeError::TypeError => write!(f, "!TYPE ERROR!"),
-            ComputeError::UnfindableReference(_) => write!(f, "!REFERENCE ERROR!"),
-            ComputeError::Cycle => write!(f, "!CYCLIC REFERENCE!"),
-            ComputeError::UnknownFunction => write!(f, "!UNKNOWN FUNCTION!"),
+            ComputeError::ParseError(_) => write!(f, "!-PARSE ERROR-!"),
+            ComputeError::TypeError(_) => write!(f, "!-TYPE ERROR-!"),
+            ComputeError::UnfindableReference(_) => write!(f, "!-REFERENCE ERROR-!"),
+            ComputeError::Cycle => write!(f, "!-CYCLIC REFERENCE-!"),
+            ComputeError::UnknownFunction(_) => write!(f, "!-UNKNOWN FUNCTION-!"),
+            ComputeError::InvalidArgument(_) => write!(f, "!-INVALID FUNCTION ARGUMENT-!"),
         }
     }
 }

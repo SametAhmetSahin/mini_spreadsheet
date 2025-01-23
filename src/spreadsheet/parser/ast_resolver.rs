@@ -23,44 +23,80 @@ impl ASTResolver {
                 let right_resolved = Self::resolve(right, variables)?;
 
                 match op {
-                    Token::Plus => left_resolved
-                        .add(right_resolved)
-                        .ok_or(ComputeError::TypeError),
-                    Token::Minus => left_resolved
-                        .sub(right_resolved)
-                        .ok_or(ComputeError::TypeError),
-                    Token::Division => left_resolved
-                        .div(right_resolved)
-                        .ok_or(ComputeError::TypeError),
-                    Token::Multiply => left_resolved
-                        .mult(right_resolved)
-                        .ok_or(ComputeError::TypeError),
+                    Token::Plus => {
+                        left_resolved
+                            .add(right_resolved)
+                            .ok_or(ComputeError::TypeError(
+                                "Addition requires two numeric values".to_string(),
+                            ))
+                    }
+                    Token::Minus => {
+                        left_resolved
+                            .sub(right_resolved)
+                            .ok_or(ComputeError::TypeError(
+                                "Subtraction requires two numeric values".to_string(),
+                            ))
+                    }
+                    Token::Division => {
+                        left_resolved
+                            .div(right_resolved)
+                            .ok_or(ComputeError::TypeError(
+                                "Division requires two numeric values".to_string(),
+                            ))
+                    }
+                    Token::Multiply => {
+                        left_resolved
+                            .mult(right_resolved)
+                            .ok_or(ComputeError::TypeError(
+                                "Multiplication requires two numeric values".to_string(),
+                            ))
+                    }
 
                     Token::Equals => Ok(Value::Bool(left_resolved.eq(&right_resolved))),
                     Token::NotEquals => Ok(Value::Bool(left_resolved.ne(&right_resolved))),
-                    Token::GreaterThan => left_resolved
-                        .greater_than(right_resolved)
-                        .ok_or(ComputeError::TypeError),
-                    Token::LessThan => left_resolved
-                        .less_than(right_resolved)
-                        .ok_or(ComputeError::TypeError),
-                    Token::GreaterEquals => left_resolved
-                        .greater_equals(right_resolved)
-                        .ok_or(ComputeError::TypeError),
-                    Token::LessEquals => left_resolved
-                        .less_equals(right_resolved)
-                        .ok_or(ComputeError::TypeError),
+                    Token::GreaterThan => {
+                        left_resolved
+                            .greater_than(right_resolved)
+                            .ok_or(ComputeError::TypeError(
+                                "Greater than comparison requires two numeric values".to_string(),
+                            ))
+                    }
+                    Token::LessThan => {
+                        left_resolved
+                            .less_than(right_resolved)
+                            .ok_or(ComputeError::TypeError(
+                                "Less than comparison requires two numeric values".to_string(),
+                            ))
+                    }
+                    Token::GreaterEquals => {
+                        left_resolved
+                            .greater_equals(right_resolved)
+                            .ok_or(ComputeError::TypeError(
+                                "Greater or equal comparison requires two numeric values".to_string(),
+                            ))
+                    }
+                    Token::LessEquals => {
+                        left_resolved
+                            .less_equals(right_resolved)
+                            .ok_or(ComputeError::TypeError(
+                                "Less or equal comparison requires two numeric values".to_string(),
+                            ))
+                    }
                     Token::And => left_resolved
                         .and(right_resolved)
-                        .ok_or(ComputeError::TypeError),
+                        .ok_or(ComputeError::TypeError(
+                            "Logical AND requires two boolean values".to_string(),
+                        )),
                     Token::Or => left_resolved
                         .or(right_resolved)
-                        .ok_or(ComputeError::TypeError),
+                        .ok_or(ComputeError::TypeError(
+                            "Logical OR requires two boolean values".to_string(),
+                        )),
                     other => panic!("{other:?} is not a binary operator"),
                 }
             }
             AST::Range { from: _, to: _ } => {
-                Err(ComputeError::TypeError) // Ranges can only appear as function arguments
+                Err(ComputeError::TypeError("Ranges can only appear as function arguments".to_owned()))
             }
 
             AST::FunctionCall { name, arguments } => {
@@ -81,7 +117,7 @@ impl ASTResolver {
                 if let Some(func) = get_func(name) {
                     func(resolved_args)
                 } else {
-                    Err(ComputeError::UnknownFunction)
+                    Err(ComputeError::UnknownFunction(name.to_owned()))
                 }
             }
             AST::UnaryOp { op, expr } => {
@@ -89,7 +125,7 @@ impl ASTResolver {
                 if let Value::Bool(boolean) = Self::resolve(&expr, variables)? {
                     Ok(Value::Bool(!boolean))
                 } else {
-                    Err(ComputeError::TypeError)
+                    Err(ComputeError::TypeError("Not(!) operator can only work on boolean expressions".to_owned()))
                 }
             }
         }
@@ -416,11 +452,11 @@ mod tests {
             };
 
             let result = ASTResolver::resolve(&ast, &variables);
-            assert!(matches!(result, Err(ComputeError::UnknownFunction)));
+            assert!(matches!(result, Err(ComputeError::UnknownFunction(_))));
         }
 
         #[test]
-        fn test_sum_type_error() {
+        fn test_sum_invalid_arg_error() {
             let mut vars = HashMap::new();
             vars.insert(Index { x: 0, y: 0 }, Value::Text("a".to_string()));
             let variables = MockVarContext::new(vars);
@@ -431,7 +467,7 @@ mod tests {
             };
 
             let result = ASTResolver::resolve(&ast, &variables);
-            assert!(matches!(result, Err(ComputeError::TypeError)));
+            assert!(matches!(result, Err(ComputeError::InvalidArgument(_))));
         }
 
         #[test]
@@ -595,7 +631,7 @@ mod tests {
             right: Box::new(AST::CellName("A2".to_string())),
         };
         let result = ASTResolver::resolve(&ast, &variables);
-        assert!(matches!(result, Err(ComputeError::TypeError)));
+        assert!(matches!(result, Err(ComputeError::TypeError(_))));
     }
 
     #[test]
@@ -609,7 +645,7 @@ mod tests {
             expr: Box::new(AST::CellName("A1".to_string())),
         };
         let result = ASTResolver::resolve(&ast, &variables);
-        assert!(matches!(result, Err(ComputeError::TypeError)));
+        assert!(matches!(result, Err(ComputeError::TypeError(_))));
     }
 
     #[test]
@@ -625,6 +661,6 @@ mod tests {
             right: Box::new(AST::CellName("A2".to_string())),
         };
         let result = ASTResolver::resolve(&ast, &variables);
-        assert!(matches!(result, Err(ComputeError::TypeError)));
+        assert!(matches!(result, Err(ComputeError::TypeError(_))));
     }
 }

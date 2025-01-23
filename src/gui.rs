@@ -1,3 +1,4 @@
+
 use macroquad::prelude::*;
 use macroquad::ui::widgets::InputText;
 use macroquad::ui::{hash, root_ui, Skin};
@@ -404,7 +405,7 @@ impl GUI {
             draw_rectangle_lines(dialog_x, dialog_y, DIALOG_WIDTH, DIALOG_HEIGHT, 4.0, RED);
 
             // Prepare dialog text
-            let dialog_text = format!("Error: {}", err);
+            let dialog_text = format!("Error: {}", err_to_info(err));
             let text_dimensions =
                 measure_text(&dialog_text, Some(&self.regular_font), LABEL_FONT_SIZE, 1.0);
 
@@ -494,5 +495,16 @@ fn computed_to_text(computed: Option<Result<Value, ComputeError>>) -> String {
             Err(err) => err.to_string(),
         },
         None => String::new(),
+    }
+}
+
+fn err_to_info(err: ComputeError) -> String {
+    match err {
+        ComputeError::ParseError(reason) => reason,
+        ComputeError::TypeError(message) => message,
+        ComputeError::UnfindableReference(message) => message,
+        ComputeError::Cycle => format!("Detected cyclic computation"),
+        ComputeError::UnknownFunction(f) => format!("Unknown function '{f}'"),
+        ComputeError::InvalidArgument(message) => message,
     }
 }
