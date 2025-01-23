@@ -17,6 +17,7 @@ const GRID_COLS: usize = 10;
 const EDITOR_HEIGHT: f32 = 40.0;
 const EDITOR_TOP_MARGIN: f32 = 0.0;
 const EDITOR_PADDING: f32 = 20.0;
+const EDITOR_WINDOW_HEIGHT: f32 = EDITOR_HEIGHT + EDITOR_PADDING * 2.0;
 
 // Cell styling
 const CELL_FONT_SIZE: u16 = 12;
@@ -65,7 +66,7 @@ impl GUI {
                 .background_margin(RectOffset::new(4., 4., 4., 4.))
                 .with_font(&regular_font)
                 .unwrap()
-                .text_color(Color::from_rgba(60, 60, 60, 255)) // Dark gray text
+                .text_color(Color::from_rgba(10, 10, 10, 255)) // Dark gray text
                 .color_selected(Color::from_rgba(200, 200, 255, 255)) // Light blue selection
                 .font_size(16)
                 .build();
@@ -74,7 +75,7 @@ impl GUI {
                 .style_builder()
                 .background_margin(RectOffset::new(2.0, 2.0, 2.0, 2.0))
                 .margin(RectOffset::new(0.0, 0.0, 0.0, 0.0))
-                .color(Color::from_rgba(240, 240, 240, 255)) // Light gray background
+                .color(Color::from_rgba(240, 240, 240, 255)) // Light gray background              
                 .build();
 
             Skin {
@@ -102,7 +103,7 @@ impl GUI {
 
             self.draw_editor();
             self.draw_cells(
-                (0.0, EDITOR_HEIGHT + EDITOR_TOP_MARGIN),
+                (0.0, EDITOR_WINDOW_HEIGHT),
                 (screen_width(), screen_height()),
             );
 
@@ -118,7 +119,7 @@ impl GUI {
         root_ui().window(
             window_id,
             vec2(0.0, EDITOR_TOP_MARGIN),
-            vec2(screen_width(), EDITOR_HEIGHT + EDITOR_PADDING * 2.0),
+            vec2(screen_width(), EDITOR_WINDOW_HEIGHT),
             |ui| {
                 let input_text_id = hash!();
                 InputText::new(input_text_id)
