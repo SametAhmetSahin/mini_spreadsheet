@@ -467,6 +467,9 @@ fn is_point_in_rect<T: std::cmp::PartialOrd>(
    exp_pad controls the amount of left padded 0s
 */
 fn fmt_f64(num: f64, width: usize, precision: usize, exp_pad: usize) -> String {
+    if !num.is_finite(){
+        return num.to_string();
+    }
     let mut num = format!("{:.precision$e}", num, precision = precision);
     // Safe to `unwrap` as `num` is guaranteed to contain `'e'`
     let exp = num.split_off(num.find('e').expect("safe"));
