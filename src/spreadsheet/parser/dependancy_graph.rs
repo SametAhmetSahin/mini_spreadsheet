@@ -17,7 +17,7 @@ pub struct TopologicalSort {
 impl DependancyGraph {
     pub fn add_node(&mut self, idx: Index, cell_depends_on: &Vec<Index>) {
         for dependency in cell_depends_on {
-            self.allows_compute.entry(*dependency).or_insert_with(Vec::new).push(idx);
+            self.allows_compute.entry(*dependency).or_default().push(idx);
         }
     }
 
@@ -91,8 +91,8 @@ impl DependancyGraph {
             if let Some(dependants) = self.allows_compute.get(&cell) {
                 for dependant in dependants.iter() {
                     if !result.contains(dependant) {
-                        result.push(dependant.clone());
-                        to_process.push(dependant.clone());
+                        result.push(*dependant);
+                        to_process.push(*dependant);
                     }
                 }
             }

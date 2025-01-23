@@ -57,7 +57,7 @@ impl CellParser {
                     ParseError(format!("Invalid number format: {num}"))
                 }
                 tokenizer::TokenizeError::UnterminatedString => {
-                    ParseError(format!("Unterminated String"))
+                    ParseError("Unterminated String".to_string())
                 }
             })?;
 

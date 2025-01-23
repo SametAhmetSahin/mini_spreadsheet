@@ -122,7 +122,7 @@ impl ASTResolver {
             }
             AST::UnaryOp { op, expr } => {
                 matches!(op, Token::Not);
-                if let Value::Bool(boolean) = Self::resolve(&expr, variables)? {
+                if let Value::Bool(boolean) = Self::resolve(expr, variables)? {
                     Ok(Value::Bool(!boolean))
                 } else {
                     Err(ComputeError::TypeError("Not(!) operator can only work on boolean expressions".to_owned()))

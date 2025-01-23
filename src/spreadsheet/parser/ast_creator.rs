@@ -27,7 +27,7 @@ where
 
     pub fn parse(&mut self) -> Result<crate::common_types::AST, ASTCreateError> {
         let result = self.parse_expression(0);
-        if let Some(_) = self.tokens.next() {
+        if self.tokens.next().is_some() {
             // We have not parsed all tokens
             Err(ASTCreateError::UnexpectedToken)
         } else {
@@ -74,7 +74,7 @@ where
                 let arguments = self.parse_function_arguements()?;
                 Ok(AST::FunctionCall {
                     name,
-                    arguments: arguments,
+                    arguments,
                 })
             }
             Some(Token::CellName(name)) => {

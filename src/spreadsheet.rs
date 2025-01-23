@@ -182,7 +182,7 @@ impl SpreadSheet {
     }
 
     pub fn get_raw(&self, index: &Index) -> Option<&str> {
-        Some(&self.cells.get(&index)?.raw_representation)
+        Some(&self.cells.get(index)?.raw_representation)
     }
 }
 #[cfg(test)]

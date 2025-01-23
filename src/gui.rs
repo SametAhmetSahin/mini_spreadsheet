@@ -14,7 +14,7 @@ const GRID_ROWS: usize = 20;
 const GRID_COLS: usize = 6;
 
 // Editor configuration
-const EDITOR_HEIGHT: f32 = 40.0;
+const EDITOR_HEIGHT: f32 = 24.0;
 const EDITOR_TOP_MARGIN: f32 = 0.0;
 const EDITOR_PADDING: f32 = 20.0;
 const EDITOR_WINDOW_HEIGHT: f32 = EDITOR_HEIGHT + EDITOR_PADDING * 2.0;
@@ -50,10 +50,9 @@ pub struct GUI {
 
 impl GUI {
     pub async fn new(spread_sheet: SpreadSheet) -> Self {
-        let regular_font =
-            load_ttf_font("fonts/jetbrains-mono-font/JetbrainsMonoRegular-RpvmM.ttf")
-                .await
-                .unwrap();
+        let regular_font = load_ttf_font("fonts/jetbrains-mono-font/JetbrainsMonoMedium-nRvBM.ttf")
+            .await
+            .unwrap();
 
         let bold_font = load_ttf_font("fonts/jetbrains-mono-font/JetbrainsMonoBold-51Xez.ttf")
             .await
@@ -63,18 +62,13 @@ impl GUI {
         let editor_skin = {
             let editbox_style = root_ui()
                 .style_builder()
-                .background_margin(RectOffset::new(4., 4., 4., 4.))
+                .color_selected(Color::from_rgba(200, 200, 255, 255)) // Light blue selection
                 .with_font(&regular_font)
                 .unwrap()
-                .text_color(Color::from_rgba(10, 10, 10, 255)) // Dark gray text
-                .color_selected(Color::from_rgba(200, 200, 255, 255)) // Light blue selection
-                .font_size(16)
                 .build();
 
             let window_style = root_ui()
                 .style_builder()
-                .background_margin(RectOffset::new(2.0, 2.0, 2.0, 2.0))
-                .margin(RectOffset::new(0.0, 0.0, 0.0, 0.0))
                 .color(Color::from_rgba(240, 240, 240, 255)) // Light gray background
                 .build();
 
@@ -170,14 +164,12 @@ impl GUI {
 
             if is_mouse_button_pressed(MouseButton::Left) {
                 if is_key_down(KeyCode::LeftControl) {
-                    if let Some(_) = self.selected_cell {
-                        if &Some('=') == &self.editor_content.chars().nth(0) {
-                            self.editor_content.push_str(&format!(
-                                "{}{}",
-                                column_idx_to_string(x_idx),
-                                y_idx + 1
-                            ))
-                        }
+                    if self.selected_cell.is_some() && &Some('=') == &self.editor_content.chars().nth(0) {
+                        self.editor_content.push_str(&format!(
+                            "{}{}",
+                            column_idx_to_string(x_idx),
+                            y_idx + 1
+                        ))
                     }
                 } else {
                     self.change_selected_cell(Index { x: x_idx, y: y_idx });
@@ -514,7 +506,7 @@ fn err_to_info(err: ComputeError) -> String {
         ComputeError::ParseError(reason) => reason,
         ComputeError::TypeError(message) => message,
         ComputeError::UnfindableReference(message) => message,
-        ComputeError::Cycle => format!("Detected cyclic computation"),
+        ComputeError::Cycle => "Detected cyclic computation".to_string(),
         ComputeError::UnknownFunction(f) => format!("Unknown function '{f}'"),
         ComputeError::InvalidArgument(message) => message,
     }
