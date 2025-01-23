@@ -10,7 +10,7 @@ mod spreadsheet;
 
 #[macroquad::main("MyGame")]
 async fn main() {
-    let spread_sheet = SpreadSheet::from_file_path(PathBuf::from("./csv/sum.csv"));
+    let spread_sheet = SpreadSheet::from_file_path(PathBuf::from("./csv/cycle.csv"));
     let mut gui = GUI::new(spread_sheet).await;
     gui.start().await;
 }

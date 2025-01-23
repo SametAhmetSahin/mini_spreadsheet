@@ -11,7 +11,7 @@ const INITIAL_WINDOW_HEIGHT: f32 = 900.0;
 
 // Grid configuration
 const GRID_ROWS: usize = 20;
-const GRID_COLS: usize = 10;
+const GRID_COLS: usize = 6;
 
 // Editor configuration
 const EDITOR_HEIGHT: f32 = 40.0;
@@ -75,7 +75,7 @@ impl GUI {
                 .style_builder()
                 .background_margin(RectOffset::new(2.0, 2.0, 2.0, 2.0))
                 .margin(RectOffset::new(0.0, 0.0, 0.0, 0.0))
-                .color(Color::from_rgba(240, 240, 240, 255)) // Light gray background              
+                .color(Color::from_rgba(240, 240, 240, 255)) // Light gray background
                 .build();
 
             Skin {
@@ -158,13 +158,17 @@ impl GUI {
         let cell_width = grid_width / GRID_COLS as f32;
 
         // Handle if mouse clicked
-        if is_mouse_button_pressed(MouseButton::Left) {
-            let (x, y) = mouse_position();
-            if is_point_in_rect((x, y), start, end) {
-                let col = ((x - start_x - ROW_LABEL_WIDTH) / cell_width) as i32;
-                let row = ((y - start_y - COL_LABEL_HEIGHT) / cell_height) as i32;
-                let x_idx = col.try_into().expect("Got negative idx from click");
-                let y_idx = row.try_into().expect("Got negative idx from click");
+        let mut hovered: Option<Index> = None;
+        let (x, y) = mouse_position();
+        if is_point_in_rect((x, y), start, end) {
+            let col = ((x - start_x - ROW_LABEL_WIDTH) / cell_width) as i32;
+            let row = ((y - start_y - COL_LABEL_HEIGHT) / cell_height) as i32;
+            let x_idx = col.try_into().expect("Got negative idx from click");
+            let y_idx = row.try_into().expect("Got negative idx from click");
+
+            hovered = Some(Index { x: x_idx, y: y_idx });
+
+            if is_mouse_button_pressed(MouseButton::Left) {
                 if is_key_down(KeyCode::LeftControl) {
                     if let Some(_) = self.selected_cell {
                         if &Some('=') == &self.editor_content.chars().nth(0) {
@@ -234,6 +238,14 @@ impl GUI {
                 );
             }
         }
+
+        // Draw dialog box for hovered cell
+        if let Some(idx) = hovered {
+            let cell_end_x = start_x + idx.x as f32 * cell_width + ROW_LABEL_WIDTH + cell_width;
+            let cell_end_y = start_y + idx.y as f32 * cell_height + COL_LABEL_HEIGHT;
+            let dialog_pos = (cell_end_x, cell_end_y);
+            self.draw_dialog(idx, dialog_pos);
+        }
     }
 
     fn draw_cell(&self, index: Index, start: (f32, f32), dimensions: (f32, f32)) {
@@ -254,7 +266,18 @@ impl GUI {
         let text = if Some(index) == self.selected_cell {
             &self.editor_content
         } else {
-            &computed_to_text(self.spread_sheet.get_computed(index))
+            let computed = self.spread_sheet.get_computed(index);
+            if let Some(Err(_)) = computed {
+                let triangle_len = 10.;
+                draw_triangle(
+                    vec2(start_x + width, start_y),
+                    vec2(start_x + width - triangle_len, start_y),
+                    vec2(start_x + width, start_y + triangle_len),
+                    RED,
+                );
+            }
+
+            &computed_to_text(computed)
         };
 
         if !text.is_empty() {
@@ -359,6 +382,51 @@ impl GUI {
             .unwrap_or_default()
             .to_owned();
         self.selected_cell = Some(idx);
+    }
+
+    fn draw_dialog(&self, idx: Index, pos: (f32, f32)) {
+        // Only draw dialog if we have a raw cell value
+        if let Some(err) = self.spread_sheet.get_error(idx) {
+            // Constants for dialog positioning
+            const DIALOG_WIDTH: f32 = 200.0;
+            const DIALOG_HEIGHT: f32 = 80.0;
+
+            let (dialog_x, dialog_y) = pos;
+
+            // Draw dialog background
+            draw_rectangle(
+                dialog_x,
+                dialog_y,
+                DIALOG_WIDTH,
+                DIALOG_HEIGHT,
+                GRID_BACKGROUND_COLOR,
+            );
+            draw_rectangle_lines(dialog_x, dialog_y, DIALOG_WIDTH, DIALOG_HEIGHT, 4.0, RED);
+
+            // Prepare dialog text
+            let dialog_text = format!("Error: {}", err);
+            let text_dimensions =
+                measure_text(&dialog_text, Some(&self.regular_font), LABEL_FONT_SIZE, 1.0);
+
+            // Center text in dialog
+            let text_x = dialog_x + (DIALOG_WIDTH - text_dimensions.width) / 2.0;
+            let text_y = dialog_y + DIALOG_HEIGHT / 2.0 + text_dimensions.height / 2.0;
+
+            // Draw dialog text
+            draw_text_ex(
+                &dialog_text,
+                text_x,
+                text_y,
+                TextParams {
+                    font: Some(&self.regular_font),
+                    font_size: LABEL_FONT_SIZE,
+                    font_scale: 1.0,
+                    font_scale_aspect: 1.0,
+                    rotation: 0.0,
+                    color: LABEL_TEXT_COLOR,
+                },
+            );
+        }
     }
 }
 

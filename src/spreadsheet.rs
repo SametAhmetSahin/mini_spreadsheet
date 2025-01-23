@@ -21,14 +21,6 @@ impl VarContext for SpreadSheet {
 }
 
 impl SpreadSheet {
-    fn parse_and_add_raw(&mut self, index: Index, mut cell: Cell) {
-        CellParser::parse_cell(&mut cell);
-
-        self.add_dependencies(index, &cell);
-
-        self.cells.insert(index, cell);
-    }
-
     /// Adds the dependency graph for a cell based on its parsed representation.
     fn add_dependencies(&mut self, index: Index, cell: &Cell) {
         if let Some(Ok(ParsedCell::Expr(Expression {
@@ -77,18 +69,15 @@ impl SpreadSheet {
                 if cell.is_empty() {
                     continue;
                 }
-                spreadsheet.parse_and_add_raw(Index { x, y }, Cell::from_raw(cell));
+                spreadsheet.add_cell_and_compute(Index { x, y }, cell);
             }
         }
-
-        spreadsheet.compute_all();
 
         spreadsheet
     }
 
     pub fn compute_all(&mut self) {
         let TopologicalSort { sorted, cycles } = self.dependencies.topological_sort();
-
         for idx in sorted {
             let Some(cell) = self.cells.get(&idx) else {
                 continue;
@@ -114,6 +103,17 @@ impl SpreadSheet {
 
     pub fn get_computed(&self, index: Index) -> Option<Result<Value, ComputeError>> {
         self.cells.get(&index)?.computed_value.clone()
+    }
+    
+    pub fn get_error(&self, index: Index) -> Option<ComputeError> {
+        match &self.cells.get(&index)?.computed_value {
+            Some(val) => match val {
+                Ok(_) => None,
+                Err(e) => Some(e.clone()),
+            },
+            None => None,
+        }
+        
     }
 
     pub fn add_cell_and_compute(&mut self, index: Index, raw: String) {
