@@ -7,7 +7,7 @@ mod gui;
 mod renderer;
 mod spreadsheet;
 
-#[macroquad::main("MyGame")]
+#[macroquad::main("Spredsheet")]
 async fn main() {
     let spread_sheet = SpreadSheet::default();
     let mut gui = GUI::new(spread_sheet).await;
