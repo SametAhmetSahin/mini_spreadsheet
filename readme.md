@@ -1,5 +1,8 @@
 # How to use
 
+## UI
+You can edit cells by clicking on them. To add a reference to another cell (only when writing expressions) such as 'A1' you can click on the cell you want to reference while holding down the ctrl key. You can hower on any error see a detailed description.
+
 ## Syntax
 
 | Type       | Description                                                                                             | Examples                             |
