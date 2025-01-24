@@ -30,7 +30,7 @@ jobs:
           mkdir -p ./deploy/fonts
           cp ./target/wasm32-unknown-unknown/release/mini_spreadsheet.wasm ./deploy/
           cp index.html ./deploy/
-          cp -r fonts/ ./deploy/fonts/
+          cp -r fonts/* ./deploy/fonts/
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
